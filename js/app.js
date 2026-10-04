@@ -611,6 +611,9 @@
   function render() {
     const W = stage.clientWidth;
     if (W < 20) return;
+    const isEmpty = parsed.items.length === 0;
+    $('empty').hidden = !isEmpty;
+    if (isEmpty) { stage.textContent = ''; return; } // ohne Einträge keine Achse, nur der Hinweis
     const g = Layout.layout(shownItems(), view, W, { scale: present ? PRESENT_SCALE : 1, family: FAM_SCREEN, measure, blank: false });
     const H = Math.max(Math.ceil(g.H), Math.floor(stage.clientHeight));
     const offY = Math.max(0, (H - g.H) / 2);
@@ -622,7 +625,6 @@
       const el = stage.querySelector(`[data-id="${focusId}"]`);
       if (el) el.focus({ preventScroll: true });
     }
-    $('empty').hidden = parsed.items.length > 0;
   }
 
   /* ---------- Bereiche neben der Bühne ---------- */
