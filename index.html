@@ -27,6 +27,7 @@
     </div>
     <div class="actions">
       <span id="save-status" class="status" role="status" aria-live="polite"></span>
+      <button type="button" class="linkbtn backup-due" id="backup-due" hidden>Jetzt sichern</button>
       <div class="klasse" id="klasse" role="group" aria-label="Klasse" hidden>
         <button type="button" class="btn connect-btn">iPads verbinden</button>
         <button type="button" class="btn" id="btn-abgaben">Schüler-Zeitstrahlen <span class="count" id="abgaben-count" hidden></span></button>
@@ -36,7 +37,7 @@
       <div class="menu">
         <button type="button" id="btn-file" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu">Datei</button>
         <div id="file-menu" class="menu-list" role="menu" hidden>
-          <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json)</button>
+          <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json, .csv)</button>
           <hr>
           <button type="button" role="menuitem" data-act="export-txt">Als Textdatei sichern (.txt)</button>
           <button type="button" role="menuitem" data-act="export-json">Mit Bildern sichern (.json)</button>
@@ -47,7 +48,7 @@
           <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.json)</button>
           <button type="button" role="menuitem" data-act="add-samples">Beispiele hinzufügen</button>
         </div>
-        <input type="file" id="file-input" accept=".txt,.json,text/plain,application/json" multiple hidden>
+        <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,text/plain,application/json,text/csv" multiple hidden>
       </div>
       <button type="button" id="btn-present" class="btn primary">Tafelbild</button>
     </div>
@@ -167,7 +168,7 @@
       </dl>
       <p>Feste Farben haben Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine Farbe.</p>
       <p>Schülerinnen und Schüler bauen über <strong>iPads verbinden</strong> eigene Zeitstrahlen zum vorgegebenen Thema. Abgaben erscheinen oben in der Auswahl unter „Schüler: Thema“. Ohne Server speichert die <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> eine Datei, die hier über <strong>Datei → Öffnen</strong> eingelesen wird.</p>
-      <p id="help-save">Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.</p>
+      <p id="help-save">Alles wird nur in diesem Browser gespeichert. Als Sicherung: <strong>Datei → Alle Zeitstrahlen sichern</strong>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.</p>
       <p>Im Tafelbild blättern Pfeiltasten, Leertaste oder ein Presenter beim schrittweisen Aufdecken weiter. Ohne Aufdecken wechseln Bild auf/Bild ab (Presenter) zum nächsten Zeitstrahl.</p>
     </aside>
   </section>
@@ -216,6 +217,21 @@
   <div class="review-foot">
     <button type="button" class="btn primary" id="connect-close">Schließen</button>
   </div>
+</dialog>
+
+<dialog id="import-ask" class="review ask" aria-labelledby="import-ask-title">
+  <form method="dialog">
+    <div class="review-head">
+      <h2 id="import-ask-title">Sicherung öffnen</h2>
+      <p id="import-ask-text"></p>
+      <p><strong>Hinzufügen</strong> behält alles und legt nur fehlende Zeitstrahlen an. <strong>Ersetzen</strong> entfernt die jetzigen Zeitstrahlen aus diesem Browser und stellt den Stand der Sicherung her.</p>
+    </div>
+    <div class="review-foot">
+      <button type="submit" class="btn ghost" value="">Abbrechen</button>
+      <button type="submit" class="btn danger" value="replace">Ersetzen</button>
+      <button type="submit" class="btn primary" value="add" autofocus>Hinzufügen</button>
+    </div>
+  </form>
 </dialog>
 
 <div id="toast" class="toast" role="status" hidden></div>

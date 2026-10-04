@@ -16,6 +16,8 @@
   const DB_KEY = 'zustand';
   const LS_KEY = 'zeitstrahl-werkstatt-v1';
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
+  const UNSAVED_KEY = 'zeitstrahl-werkstatt-ungesichert-seit';
+  const REMIND_DAYS = 7;
 
   const FAM_SCREEN = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif';
   const FAM_EXPORT = 'Arial, Helvetica, sans-serif';
@@ -161,7 +163,44 @@
   function changed() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(persistNow, 400);
+    markUnsaved();
     showStatus(true);
+  }
+
+  /* ---------- Erinnerung an eine Datei-Sicherung (nur ohne Server) ---------- */
+
+  // Ohne Server liegen die Zeitstrahlen nur im Browser. Der darf sie bei Platzmangel
+  // oder nach längerer Pause (Safari) löschen, wenn er nicht um dauerhaftes Speichern gebeten wurde.
+  let persistAsked = false;
+  function askPersist() {
+    if (persistAsked || server.on) return;
+    persistAsked = true;
+    const st = navigator.storage;
+    if (!st || !st.persist || !st.persisted) return;
+    st.persisted().then((yes) => (yes ? true : st.persist())).catch(() => { /* egal */ });
+  }
+
+  // Merkt sich, seit wann es Änderungen ohne Datei-Sicherung gibt
+  function markUnsaved() {
+    try { if (!localStorage.getItem(UNSAVED_KEY)) localStorage.setItem(UNSAVED_KEY, String(Date.now())); } catch (e) { /* egal */ }
+    askPersist();
+  }
+  function markBackedUp() {
+    try { localStorage.removeItem(UNSAVED_KEY); } catch (e) { /* egal */ }
+    showBackupDue();
+  }
+  function unsavedDays() {
+    let since = 0;
+    try { since = Number(localStorage.getItem(UNSAVED_KEY)) || 0; } catch (e) { /* egal */ }
+    return since ? Math.floor((Date.now() - since) / 86400000) : 0;
+  }
+  function showBackupDue() {
+    const days = unsavedDays();
+    const due = !server.on && days >= REMIND_DAYS;
+    const b = $('backup-due');
+    b.hidden = !due;
+    if (due) b.title = `Seit ${days} Tagen keine Sicherung als Datei. Speichert alle Zeitstrahlen als .json-Datei.`;
+    return due ? days : 0;
   }
   function showStatus(pending) {
     const el = $('save-status');
@@ -272,8 +311,9 @@
     document.querySelectorAll('.connect-btn').forEach((c) => { c.hidden = !server.on; });
     $('link-student').hidden = server.on;
     $('help-save').innerHTML = server.on
-      ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/sicherung.json</code> gespeichert. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
-      : 'Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.';
+      ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/sicherung.json</code> gespeichert, dazu je Tag eine Kopie in <code>daten/sicherungen</code>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
+      : 'Alles wird nur in diesem Browser gespeichert. Als Sicherung: <strong>Datei → Alle Zeitstrahlen sichern</strong>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.';
+    showBackupDue();
   }
 
   // Übersicht für die Lehrkraft, mit Code für den Fall, dass eine Gruppe ihn vergessen hat
@@ -1006,11 +1046,13 @@
     const data = {
       typ: 'zeitstrahl-sicherung',
       version: 1,
+      alle: all,
       gesichert: new Date().toISOString(),
       timelines: list.map((t) => ({ name: t.name, source: t.source, images: usedImages(t) })),
     };
     const name = all ? 'zeitstrahl-werkstatt-sicherung' : slug(activeTl().name);
     download(name + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+    if (all) markBackedUp();
     toast(all ? 'Alle Zeitstrahlen gesichert.' : 'Zeitstrahl mit Bildern gesichert.');
   }
 
@@ -1074,55 +1116,119 @@
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
   }
 
-  /* ---------- Öffnen: Textdateien, Sicherungen, Schülerbeiträge ---------- */
+  /* ---------- Öffnen: Textdateien, Tabellen, Sicherungen, Schülerbeiträge ---------- */
 
   const str = (v, max) => (typeof v === 'string' ? v.slice(0, max || 2000) : '');
 
+  // Excel unter Windows speichert CSV oft nicht als UTF-8. Dann ergeben Umlaute
+  // Fehlerzeichen, und die Datei wird als Windows-1252 gelesen.
+  async function readText(file) {
+    const buf = await file.arrayBuffer();
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
+    return text.replace(/^﻿/, '');
+  }
+
+  // Liest eine Datei und liefert die enthaltenen Zeitstrahlen.
+  // backup: die Datei ist eine Sicherung mehrerer Zeitstrahlen
+  async function readFile(file) {
+    if (file.size > 80 * 1024 * 1024) throw new Error(`${file.name} ist zu groß.`);
+    let text;
+    try { text = await readText(file); } catch (e) { throw new Error(`${file.name} lässt sich nicht lesen.`); }
+    const base = file.name.replace(/\.[^.]+$/, '');
+    if (/\.(csv|tsv)$/i.test(file.name)) {
+      const source = Parser.tableToSource(text);
+      if (!source.trim()) throw new Error(`${file.name} enthält keine Zeilen.`);
+      return { backup: false, list: [{ name: base || 'Tabelle', source, images: {} }] };
+    }
+    if (/\.json$/i.test(file.name) || /^\s*\{/.test(text)) {
+      let data = null;
+      try { data = JSON.parse(text); } catch (e) { /* unten gemeldet */ }
+      if (isObj(data) && data.typ === 'zeitstrahl-schueler' && Array.isArray(data.eintraege)) {
+        // Schüler-Zeitstrahl ohne Server: wird zu einem eigenen Zeitstrahl
+        const tl = abgabeToTimeline({
+          id: '', thema: str(data.thema, 140), titel: str(data.titel, 140), von: str(data.von, 120),
+          eintraege: data.eintraege.filter(isObj).map((e) => ({
+            datum: str(e.datum, 80), titel: str(e.titel, 200), kategorie: str(e.kategorie, 60),
+            beschreibung: str(e.beschreibung, 2000), bildquelle: str(e.bildquelle, 300), bild: e.bild,
+          })),
+        });
+        return { backup: false, list: [{ name: tl.name || 'Schüler-Zeitstrahl', source: tl.source, images: tl.images }] };
+      }
+      if (isObj(data) && Array.isArray(data.timelines)) {
+        const list = data.timelines.filter(isTl).map((t) => ({ name: t.name, source: t.source, images: cleanImages(t.images) }));
+        // „Alle Zeitstrahlen sichern“, die Tagessicherungen des Servers und ältere Sicherungen mit mehreren Zeitstrahlen
+        return { backup: data.alle === true || data.app === 'zeitstrahl-werkstatt' || list.length > 1, list };
+      }
+      throw new Error(`${file.name} ist keine Zeitstrahl-Datei.`);
+    }
+    let name = base;
+    let src = text.replace(/\r\n?/g, '\n');
+    const m = src.match(/^#\s*Titel:\s*(.+)\n?/);
+    if (m) { name = m[1].trim(); src = src.slice(m[0].length); }
+    return { backup: false, list: [{ name: name || 'Geöffneter Zeitstrahl', source: src, images: {} }] };
+  }
+
+  // Fragt bei einer Sicherung, ob ihre Zeitstrahlen dazukommen oder die vorhandenen ersetzen
+  function askImport(n) {
+    const dlg = $('import-ask');
+    $('import-ask-text').textContent = `Die Sicherung enthält ${n === 1 ? 'einen Zeitstrahl' : n + ' Zeitstrahlen'}. `
+      + `Hier ${state.timelines.length === 1 ? 'ist gerade einer' : 'sind gerade ' + state.timelines.length}.`;
+    dlg.returnValue = '';
+    dlg.showModal();
+    return new Promise((resolve) => dlg.addEventListener('close', () => resolve(dlg.returnValue), { once: true }));
+  }
+
   async function importFiles(fileList) {
     const fehler = [];
-    let lastAdded = null;
-    let added = 0;
+    const found = [];
+    let backup = false;
     for (const file of [...fileList]) {
-      if (file.size > 80 * 1024 * 1024) { fehler.push(`${file.name} ist zu groß.`); continue; }
-      let text;
-      try { text = (await file.text()).replace(/^﻿/, ''); } catch (e) { fehler.push(`${file.name} lässt sich nicht lesen.`); continue; }
-      if (/\.json$/i.test(file.name) || /^\s*\{/.test(text)) {
-        let data = null;
-        try { data = JSON.parse(text); } catch (e) { /* unten gemeldet */ }
-        if (isObj(data) && data.typ === 'zeitstrahl-schueler' && Array.isArray(data.eintraege)) {
-          // Schüler-Zeitstrahl ohne Server: wird zu einem eigenen Zeitstrahl
-          const tl = abgabeToTimeline({
-            id: '', thema: str(data.thema, 140), titel: str(data.titel, 140), von: str(data.von, 120),
-            eintraege: data.eintraege.filter(isObj).map((e) => ({
-              datum: str(e.datum, 80), titel: str(e.titel, 200), kategorie: str(e.kategorie, 60),
-              beschreibung: str(e.beschreibung, 2000), bildquelle: str(e.bildquelle, 300), bild: e.bild,
-            })),
-          });
-          lastAdded = addTimeline({ name: tl.name || 'Schüler-Zeitstrahl', source: tl.source, images: tl.images });
-          added++;
-        } else if (isObj(data) && Array.isArray(data.timelines)) {
-          for (const t of data.timelines) {
-            if (!isTl(t)) continue;
-            lastAdded = addTimeline({ name: t.name, source: t.source, images: cleanImages(t.images) });
-            added++;
-          }
-        } else {
-          fehler.push(`${file.name} ist keine Zeitstrahl-Datei.`);
-        }
-      } else {
-        let name = file.name.replace(/\.[^.]+$/, '');
-        let src = text.replace(/\r\n?/g, '\n');
-        const m = src.match(/^#\s*Titel:\s*(.+)\n?/);
-        if (m) { name = m[1].trim(); src = src.slice(m[0].length); }
-        lastAdded = addTimeline({ name: name || 'Geöffneter Zeitstrahl', source: src, images: {} });
-        added++;
+      try {
+        const r = await readFile(file);
+        found.push(...r.list);
+        backup = backup || r.backup;
+      } catch (e) {
+        fehler.push(e.message);
       }
     }
-    if (lastAdded) {
-      switchTo(lastAdded.id);
-      toast(added === 1 ? `„${displayName(lastAdded)}“ geöffnet.` : `${added} Zeitstrahlen geöffnet.`);
+    const fertig = (msg) => {
+      const text = [msg, ...fehler].filter(Boolean).join(' ');
+      if (text) toast(text);
+    };
+    if (!found.length) { fertig(''); return; }
+
+    let mode = 'add';
+    if (backup) {
+      mode = await askImport(found.length);
+      if (mode !== 'add' && mode !== 'replace') { fertig(''); return; }
     }
-    if (fehler.length) toast(fehler.join(' '));
+    if (mode === 'replace') {
+      state.timelines = found.map((t) => ({ id: newId(), name: t.name, source: t.source, images: t.images }));
+      await switchTo(state.timelines[0].id);
+      fertig(found.length === 1 ? 'Sicherung geöffnet, ein Zeitstrahl.' : `Sicherung geöffnet, ${found.length} Zeitstrahlen.`);
+      return;
+    }
+    // Gleicher Titel und gleiche Einträge: schon vorhanden, nicht doppelt anlegen
+    const same = (a, b) => a.name === b.name && a.source.trim() === b.source.trim();
+    let lastAdded = null;
+    let added = 0;
+    let skipped = null;
+    for (const t of found) {
+      const there = state.timelines.find((x) => same(x, t));
+      if (there) { skipped = there; continue; }
+      lastAdded = addTimeline(t);
+      added++;
+    }
+    const n = found.length - added;
+    const doppelt = n === 1 ? 'Einer war schon vorhanden.' : `${n} waren schon vorhanden.`;
+    if (lastAdded) {
+      await switchTo(lastAdded.id);
+      fertig((added === 1 ? `„${displayName(lastAdded)}“ geöffnet.` : `${added} Zeitstrahlen geöffnet.`) + (n ? ' ' + doppelt : ''));
+    } else {
+      await switchTo(skipped.id);
+      fertig(found.length === 1 ? `„${displayName(skipped)}“ ist schon vorhanden.` : `Alle ${found.length} Zeitstrahlen sind schon vorhanden.`);
+    }
   }
 
   /* ---------- Farben ---------- */
@@ -1422,6 +1528,7 @@
         if (last) { switchTo(last.id); toast('Beispiele hinzugefügt.'); }
       }
     });
+    $('backup-due').addEventListener('click', () => exportJson(true));
     $('file-input').addEventListener('change', (e) => {
       const files = e.target.files;
       if (files && files.length) importFiles(files).finally(() => { e.target.value = ''; });
@@ -1460,10 +1567,10 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         persistNow();
-        toast('In diesem Browser gespeichert. Zum Weitergeben: Datei → Als Textdatei sichern.');
+        toast('In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
         return;
       }
-      if ($('abgaben').open || $('connect').open) return;
+      if ($('abgaben').open || $('connect').open || $('import-ask').open) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
       if (present) {
@@ -1521,6 +1628,8 @@
       setInterval(pollAbgaben, 5000);
       scheduleBackup();
     }
+    const days = showBackupDue();
+    if (days) toast(`Seit ${days} Tagen keine Sicherung als Datei. Oben auf „Jetzt sichern“ klicken.`);
   }
 
   start();
