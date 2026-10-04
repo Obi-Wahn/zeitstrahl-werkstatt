@@ -1129,6 +1129,8 @@
 
   const THEMES = { system: 'Farben: automatisch', light: 'Farben: hell', dark: 'Farben: Tafel' };
   let theme = 'system';
+  const shownTheme = () => (theme !== 'system' ? theme
+    : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   function applyTheme(t, save) {
     theme = THEMES[t] ? t : 'system';
     if (theme === 'system') document.documentElement.removeAttribute('data-theme');
@@ -1379,7 +1381,9 @@
 
     // Farben
     document.querySelectorAll('.theme-btn').forEach((b) => b.addEventListener('click', () => {
-      applyTheme(theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system', true);
+      // Immer ins Gegenteil des Sichtbaren: „automatisch“ kann im Dunkelmodus wie „Tafel“ aussehen,
+      // ein Schritt dorthin würde dann scheinbar nichts tun
+      applyTheme(shownTheme() === 'dark' ? 'light' : 'dark', true);
     }));
 
     // Datei-Menü
