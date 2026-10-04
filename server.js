@@ -6,12 +6,14 @@
  *         node server.js 9000   (anderer Port, nur für diesen Start)
  *
  *   Lehrkraft:  http://localhost:8080          nur an diesem Laptop
- *   iPads:      http://<IP des Laptops>:8080   öffnet die Beitragsseite
+ *   iPads:      http://<IP des Laptops>:8080   öffnet die Schülerseite
  *
  * Der Port steht in einstellungen.txt (Zeile „port = 8080“).
  *
- * Beiträge der Schülerinnen und Schüler landen im Ordner daten/eingang,
- * die Zeitstrahlen der Lehrkraft zusätzlich in daten/sicherung.json.
+ * Ablauf: Die Lehrkraft gibt ein Thema vor (daten/aufgabe.json). Schülerinnen
+ * und Schüler bauen dazu auf dem iPad je einen eigenen Zeitstrahl und speichern
+ * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
+ * Die Zeitstrahlen der Lehrkraft liegen zusätzlich in daten/sicherung.json.
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -26,8 +28,9 @@ const { exec } = require('node:child_process');
 
 const ROOT = __dirname;
 const DATA = path.join(ROOT, 'daten');
-const INBOX = path.join(DATA, 'eingang');
+const ABGABEN = path.join(DATA, 'abgaben');
 const ARCHIVE = path.join(DATA, 'archiv');
+const TASK = path.join(DATA, 'aufgabe.json');
 const BACKUP = path.join(DATA, 'sicherung.json');
 const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt');
 
@@ -63,11 +66,12 @@ function choosePort() {
 const PORT = choosePort();
 const withPort = (host) => (PORT === 80 ? host : `${host}:${PORT}`);
 
-const MAX_SUBMISSION = 25 * 1024 * 1024; // eine Einsendung (mehrere Beiträge mit Bildern)
-const MAX_BACKUP = 200 * 1024 * 1024;    // Sicherung aller Zeitstrahlen
-const MAX_ENTRIES = 20;                  // Beiträge pro Einsendung
+const MAX_SUBMISSION = 80 * 1024 * 1024; // ein Schüler-Zeitstrahl mit Bildern
+const MAX_BACKUP = 200 * 1024 * 1024;    // Sicherung aller Zeitstrahlen der Lehrkraft
+const MAX_ENTRIES = 80;                  // Ereignisse pro Schüler-Zeitstrahl
 const MAX_IMAGE = 6 * 1024 * 1024;       // ein Bild als data:-URL
-const RATE_LIMIT = 20;                   // Einsendungen pro Minute und Gerät
+const RATE_LIMIT = 30;                   // Speichervorgänge pro Minute und Gerät
+const CODE_TRIES = 10;                   // falsche Codes pro Minute und Gerät
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -168,7 +172,7 @@ async function serveStatic(req, res, pathname) {
   const teacher = isTeacher(req);
   if (rel === '' || rel === 'index.html') {
     if (!teacher) {
-      // iPads landen immer auf der Beitragsseite
+      // iPads landen immer auf der Schülerseite
       res.writeHead(302, { Location: '/beitrag.html' });
       return res.end();
     }
@@ -195,81 +199,174 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
-/* ---------- Beiträge ---------- */
+/* ---------- Hilfen ---------- */
 
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
 const validImage = (s) => typeof s === 'string' && s.length <= MAX_IMAGE && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
+const time = () => new Date().toLocaleTimeString('de-DE');
 
-function cleanEntry(b, top) {
+async function writeAtomic(file, text) {
+  const tmp = file + '.tmp';
+  await fsp.writeFile(tmp, text);
+  await fsp.rename(tmp, file);
+}
+
+// Zählt Anfragen je Gerät in der letzten Minute
+function limiter(max) {
+  const seen = new Map();
+  return (req, count = true) => {
+    const key = req.socket.remoteAddress || '?';
+    const now = Date.now();
+    const list = (seen.get(key) || []).filter((t) => now - t < 60000);
+    if (count) list.push(now);
+    seen.set(key, list);
+    return list.length > max;
+  };
+}
+const tooManySaves = limiter(RATE_LIMIT);
+const tooManyWrongCodes = limiter(CODE_TRIES);
+
+/* ---------- Aufgabe: das Thema der Lehrkraft ---------- */
+
+async function readTask() {
+  try {
+    const d = JSON.parse(await fsp.readFile(TASK, 'utf8'));
+    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000) };
+  } catch (e) {
+    return { thema: '', auftrag: '' };
+  }
+}
+
+async function saveTask(req, res) {
+  const d = await readJson(req, 64 * 1024);
+  const task = { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), aktualisiert: new Date().toISOString() };
+  await fsp.mkdir(DATA, { recursive: true });
+  await writeAtomic(TASK, JSON.stringify(task));
+  console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`);
+  sendJson(res, 200, task);
+}
+
+/* ---------- Schüler-Zeitstrahlen ---------- */
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I, O, 0, 1: leicht zu verwechseln
+const ID_RX = /^[a-f0-9]{16}$/;
+const CODE_RX = /^[A-HJ-NP-Z2-9]{5}$/;
+const newCode = () => [...crypto.randomBytes(5)].map((b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
+
+// Übersicht im Speicher, damit die Lehrkraft-Ansicht nicht ständig alle Bilder liest
+const index = new Map();
+
+function summary(a) {
   return {
-    thema: str(top.thema, 140),
-    von: str(top.von, 120),
-    datum: str(b.datum, 80),
-    titel: str(b.titel, 200),
-    kategorie: str(b.kategorie, 60),
-    beschreibung: str(b.beschreibung, 2000),
-    bildquelle: str(b.bildquelle, 300),
-    bild: validImage(b.bild) ? b.bild : '',
+    id: a.id,
+    code: a.code,
+    thema: a.thema,
+    titel: a.titel,
+    von: a.von,
+    status: a.status,
+    anzahl: a.eintraege.length,
+    bilder: a.eintraege.filter((e) => e.bild).length,
+    erstellt: a.erstellt,
+    aktualisiert: a.aktualisiert,
   };
 }
 
-const recent = new Map(); // Gerät → Zeitpunkte der letzten Einsendungen
-function tooMany(req) {
-  const key = req.socket.remoteAddress || '?';
-  const now = Date.now();
-  const list = (recent.get(key) || []).filter((t) => now - t < 60000);
-  list.push(now);
-  recent.set(key, list);
-  return list.length > RATE_LIMIT;
-}
-
-async function receive(req, res) {
-  if (tooMany(req)) return sendJson(res, 429, { fehler: 'Zu viele Einsendungen. Bitte kurz warten.' });
-  const data = await readJson(req, MAX_SUBMISSION);
-  const list = data && Array.isArray(data.beitraege) ? data.beitraege.slice(0, MAX_ENTRIES) : [];
-  const entries = list
-    .filter((b) => b && typeof b === 'object')
-    .map((b) => cleanEntry(b, data))
-    .filter((e) => e.titel && e.datum);
-  if (!entries.length) return sendJson(res, 400, { fehler: 'Es wurde kein vollständiger Beitrag gesendet.' });
-
-  await fsp.mkdir(INBOX, { recursive: true });
-  const stamp = new Date();
-  for (const e of entries) {
-    const id = stamp.toISOString().replace(/[-:T.Z]/g, '').slice(0, 14) + '-' + crypto.randomBytes(4).toString('hex');
-    await fsp.writeFile(path.join(INBOX, id + '.json'), JSON.stringify({ id, empfangen: stamp.toISOString(), ...e }));
-  }
-  const names = entries.map((e) => `„${e.titel}“`).join(', ');
-  console.log(`${stamp.toLocaleTimeString('de-DE')}  Neu: ${names}${entries[0].von ? ' (von ' + entries[0].von + ')' : ''}`);
-  sendJson(res, 200, { ok: true, anzahl: entries.length });
-}
-
-async function inbox(res) {
+function loadIndex() {
   let files = [];
   try {
-    files = (await fsp.readdir(INBOX)).filter((f) => f.endsWith('.json')).sort();
-  } catch (e) { /* noch kein Eingang */ }
-  const beitraege = [];
+    files = fs.readdirSync(ABGABEN).filter((f) => f.endsWith('.json'));
+  } catch (e) {
+    return; // noch keine Abgaben
+  }
   for (const f of files) {
     try {
-      beitraege.push(JSON.parse(await fsp.readFile(path.join(INBOX, f), 'utf8')));
+      const a = JSON.parse(fs.readFileSync(path.join(ABGABEN, f), 'utf8'));
+      if (ID_RX.test(a.id) && Array.isArray(a.eintraege)) index.set(a.id, summary(a));
     } catch (e) { /* unlesbare Datei überspringen */ }
   }
-  sendJson(res, 200, { beitraege });
 }
 
-async function markDone(req, res) {
-  const data = await readJson(req, 64 * 1024);
-  const ids = Array.isArray(data.ids) ? data.ids.filter((id) => typeof id === 'string' && /^[0-9a-f-]{10,40}$/.test(id)) : [];
-  await fsp.mkdir(ARCHIVE, { recursive: true });
-  let moved = 0;
-  for (const id of ids) {
-    try {
-      await fsp.rename(path.join(INBOX, id + '.json'), path.join(ARCHIVE, id + '.json'));
-      moved++;
-    } catch (e) { /* schon erledigt */ }
+function cleanEntries(list) {
+  return (Array.isArray(list) ? list : [])
+    .slice(0, MAX_ENTRIES)
+    .filter((b) => b && typeof b === 'object')
+    .map((b) => ({
+      datum: str(b.datum, 80),
+      titel: str(b.titel, 200),
+      kategorie: str(b.kategorie, 60),
+      beschreibung: str(b.beschreibung, 2000),
+      bildquelle: str(b.bildquelle, 300),
+      bild: validImage(b.bild) ? b.bild : '',
+    }))
+    .filter((e) => e.titel && e.datum);
+}
+
+// Neu anlegen oder – mit passendem Code – aktualisieren
+async function saveAbgabe(req, res) {
+  if (tooManySaves(req)) return sendJson(res, 429, { fehler: 'Zu viele Speichervorgänge. Bitte kurz warten.' });
+  const d = await readJson(req, MAX_SUBMISSION);
+  const von = str(d.von, 120);
+  const eintraege = cleanEntries(d.eintraege);
+  if (!von) return sendJson(res, 400, { fehler: 'Bitte bei „Erstellt von“ eure Vornamen eintragen.' });
+  if (!eintraege.length) return sendJson(res, 400, { fehler: 'Der Zeitstrahl hat noch kein vollständiges Ereignis.' });
+
+  let old = null;
+  if (typeof d.id === 'string' && index.has(d.id)) {
+    old = index.get(d.id);
+    if (old.code !== d.code) return sendJson(res, 403, { fehler: 'Der Code passt nicht zu diesem Zeitstrahl.' });
   }
-  sendJson(res, 200, { ok: true, erledigt: moved });
+  const codes = new Set([...index.values()].map((x) => x.code));
+  let code = old ? old.code : newCode();
+  while (!old && codes.has(code)) code = newCode();
+  const task = await readTask();
+  const now = new Date().toISOString();
+  const abgabe = {
+    id: old ? old.id : crypto.randomBytes(8).toString('hex'),
+    code,
+    // Das Thema legt die Lehrkraft fest; nur ohne Vorgabe gilt das der Schüler
+    thema: old ? old.thema : task.thema || str(d.thema, 140) || 'Ohne Thema',
+    titel: str(d.titel, 140),
+    von,
+    status: d.status === 'abgegeben' ? 'abgegeben' : 'entwurf',
+    erstellt: old ? old.erstellt : now,
+    aktualisiert: now,
+    eintraege,
+  };
+  await fsp.mkdir(ABGABEN, { recursive: true });
+  await writeAtomic(path.join(ABGABEN, abgabe.id + '.json'), JSON.stringify(abgabe));
+  index.set(abgabe.id, summary(abgabe));
+  const what = abgabe.status === 'abgegeben' ? 'Abgegeben' : 'Zwischengespeichert';
+  console.log(`${time()}  ${what}: „${abgabe.titel || abgabe.thema}“ von ${von} (${eintraege.length} Ereignisse, Code ${code})`);
+  sendJson(res, 200, { id: abgabe.id, code, thema: abgabe.thema, status: abgabe.status, aktualisiert: now });
+}
+
+async function sendAbgabe(res, id) {
+  try {
+    send(res, 200, await fsp.readFile(path.join(ABGABEN, id + '.json'), 'utf8'), 'application/json; charset=utf-8');
+  } catch (e) {
+    sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
+  }
+}
+
+// Schüler holen ihren Zeitstrahl mit dem Code zurück, um weiterzuarbeiten
+async function loadByCode(req, res, raw) {
+  if (tooManyWrongCodes(req, false)) return sendJson(res, 429, { fehler: 'Zu viele falsche Codes. Bitte eine Minute warten.' });
+  const code = String(raw).toUpperCase();
+  const hit = CODE_RX.test(code) ? [...index.values()].find((x) => x.code === code) : null;
+  if (!hit) {
+    tooManyWrongCodes(req);
+    return sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl. Bitte den Code prüfen.' });
+  }
+  return sendAbgabe(res, hit.id);
+}
+
+async function archiveAbgabe(res, id) {
+  await fsp.mkdir(ARCHIVE, { recursive: true });
+  try {
+    await fsp.rename(path.join(ABGABEN, id + '.json'), path.join(ARCHIVE, id + '.json'));
+  } catch (e) { /* schon entfernt */ }
+  index.delete(id);
+  sendJson(res, 200, { ok: true });
 }
 
 /* ---------- Sicherung der Zeitstrahlen ---------- */
@@ -304,14 +401,27 @@ async function handle(req, res) {
   const p = url.pathname;
   const m = req.method;
 
-  if (p === '/api/status' && m === 'GET') return sendJson(res, 200, { app: 'zeitstrahl-werkstatt', ok: true });
-  if (p === '/api/beitraege' && m === 'POST') return receive(req, res);
+  let mm;
 
+  // Für alle Geräte (Schülerseite)
+  if (p === '/api/status' && m === 'GET') return sendJson(res, 200, { app: 'zeitstrahl-werkstatt', ok: true });
+  if (p === '/api/aufgabe' && m === 'GET') return sendJson(res, 200, await readTask());
+  if (p === '/api/abgaben' && m === 'POST') return saveAbgabe(req, res);
+  if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})$/)) && m === 'GET') return loadByCode(req, res, mm[1]);
+
+  // Nur am Laptop der Lehrkraft
   if (p.startsWith('/api/')) {
     if (!teacherApi(req)) return sendJson(res, 403, { fehler: 'Nur am Laptop der Lehrkraft erlaubt.' });
     if (p === '/api/verbindung' && m === 'GET') return sendJson(res, 200, { port: server.address().port, adressen: lanAddresses() });
-    if (p === '/api/eingang' && m === 'GET') return inbox(res);
-    if (p === '/api/eingang/erledigt' && m === 'POST') return markDone(req, res);
+    if (p === '/api/aufgabe' && m === 'PUT') return saveTask(req, res);
+    if (p === '/api/abgaben' && m === 'GET') {
+      const list = [...index.values()].sort((a, b) => a.thema.localeCompare(b.thema, 'de') || a.erstellt.localeCompare(b.erstellt));
+      return sendJson(res, 200, { abgaben: list });
+    }
+    if ((mm = p.match(/^\/api\/abgaben\/([a-f0-9]{16})$/))) {
+      if (m === 'GET') return sendAbgabe(res, mm[1]);
+      if (m === 'DELETE') return archiveAbgabe(res, mm[1]);
+    }
     if (p === '/api/sicherung' && m === 'GET') return loadBackup(res);
     if (p === '/api/sicherung' && m === 'PUT') return saveBackup(req, res);
     return sendJson(res, 404, { fehler: 'Unbekannte Anfrage.' });
@@ -343,6 +453,7 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
+loadIndex();
 server.listen(PORT, '0.0.0.0', () => {
   const local = `http://${withPort('localhost')}`;
   const lan = lanAddresses();

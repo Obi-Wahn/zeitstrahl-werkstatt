@@ -1,6 +1,6 @@
 # Zeitstrahl-Werkstatt
 
-Interaktive Zeitstrahlen für Geschichte und Religion. Die Lehrkraft pflegt die Einträge als einfachen Text, zeigt sie als Tafelbild am Beamer und sichert sie als Bild fürs Arbeitsblatt. Schülerinnen und Schüler schicken eigene Ereignisse mit Foto direkt vom iPad an den Laptop der Lehrkraft.
+Interaktive Zeitstrahlen für Geschichte und Religion. Die Lehrkraft pflegt eigene Zeitstrahlen als einfachen Text, zeigt sie als Tafelbild am Beamer und sichert sie als Bild fürs Arbeitsblatt. Schülerinnen und Schüler bauen auf dem iPad zu einem vorgegebenen Thema eigene Zeitstrahlen mit Fotos und geben sie ab. Die Lehrkraft präsentiert anschließend die Zeitstrahlen der Gruppen nacheinander.
 
 Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Konten, alle Daten bleiben auf dem Laptop.
 
@@ -16,11 +16,15 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
    - Mac: `Server starten (Mac).command` (beim ersten Mal: Rechtsklick → Öffnen)
 
    Es öffnet sich ein Fenster mit den Adressen, und der Browser zeigt die Lehrkraft-Ansicht unter `http://localhost:8080`. **Das Fenster während der Stunde offen lassen.**
-2. **iPads verbinden:** Auf **iPads verbinden** klicken. Am Beamer erscheint ein großer QR-Code. Die Schülerinnen und Schüler scannen ihn mit der Kamera-App und landen direkt auf der Beitragsseite. Das Thema ist dort schon eingetragen, es kommt vom gerade geöffneten Zeitstrahl.
-3. **Beiträge schreiben:** Auf dem iPad tragen sie Vornamen, Datum, Ereignis, Kategorie und Beschreibung ein. Ein Bild können sie direkt fotografieren oder aus der Mediathek wählen, die Bildquelle ist dann Pflicht. Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Am Ende tippen sie auf **An die Lehrkraft senden**.
-4. **Beiträge prüfen:** Bei der Lehrkraft zählt der Knopf **Eingang (3)** mit, neue Beiträge werden kurz angezeigt. Ein Klick öffnet die Prüfung. Ausgewählte Beiträge kommen mit Bild in den aktuellen Zeitstrahl, die übrigen werden verworfen.
-5. **Präsentieren:** Mit **Tafelbild** geht es in den Vollbildmodus, mit **Schrittweise aufdecken** blättert man Eintrag für Eintrag durch.
-6. **Beenden:** Das Server-Fenster schließen.
+2. **Thema vorgeben:** Auf **iPads verbinden** klicken, das Thema eintragen (z. B. „Reformation“), auf Wunsch einen kurzen Arbeitsauftrag, und **Thema festlegen** klicken. Darunter erscheint ein großer QR-Code für den Beamer.
+3. **iPads verbinden:** Die Schülerinnen und Schüler scannen den QR-Code mit der Kamera-App und landen auf der Schülerseite. Dort stehen schon das Thema und der Arbeitsauftrag.
+4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
+5. **Zwischenspeichern:** Beim ersten **Zwischenspeichern** bekommt die Gruppe einen **Code** aus fünf Zeichen (z. B. `K7M2X`), den sie aufschreibt. Danach speichert die Seite alle 15 Sekunden automatisch. In der nächsten Stunde, auch auf einem anderen iPad, tippt die Gruppe den Code unter „Mit eurem Code weiterarbeiten“ ein und macht weiter.
+6. **Abgeben:** Ist der Zeitstrahl fertig, tippt die Gruppe auf **Fertig – abgeben**. Verbessern und erneut abgeben geht jederzeit.
+7. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen (5)** mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“.
+8. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl.
+9. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
+10. **Beenden:** Das Server-Fenster schließen.
 
 ### Wenn die iPads die Seite nicht erreichen
 
@@ -46,7 +50,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 
 ## Ohne Server
 
-`index.html` funktioniert auch per Doppelklick, ganz ohne Server, z. B. zum Vorbereiten zu Hause. Dann fehlen nur „iPads verbinden“ und der Eingang. Schülerbeiträge lassen sich trotzdem als Datei austauschen: Die Schülerseite `beitrag.html` speichert dann eine Datei, die man über **Datei → Öffnen** einliest.
+`index.html` funktioniert auch per Doppelklick, ganz ohne Server, z. B. zum Vorbereiten zu Hause. Dann fehlen nur „iPads verbinden“ und die Schüler-Zeitstrahlen. Auch die Schülerseite `beitrag.html` läuft per Doppelklick: Dort tragen die Schüler das Thema selbst ein und speichern ihren Zeitstrahl als Datei. Die Lehrkraft liest sie über **Datei → Öffnen** ein.
 
 **Wichtig:** Der Browser speichert die Zeitstrahlen getrennt nach Adresse. Was unter `http://localhost:8080` angelegt wurde, erscheint nicht beim Doppelklick auf `index.html` und umgekehrt. Zum Übertragen **Datei → Alle Zeitstrahlen sichern** und auf der anderen Seite **Datei → Öffnen** verwenden.
 
@@ -60,6 +64,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Tafelbild | Vollbild für den Beamer, große Schrift. **Schrittweise aufdecken** blättert in zeitlicher Reihenfolge (Pfeiltasten, Leertaste oder Presenter). |
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben). |
 | Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
+| Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
 | Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich in `daten/sicherung.json`. |
 
 ## Schreibweise der Einträge
@@ -90,13 +95,14 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
 
 - **Keine Cloud, keine Konten:** Der Server läuft nur auf dem Laptop und nur, solange das Fenster offen ist.
 - **Daten im Ordner `daten/`:**
-  - `eingang/`: noch nicht geprüfte Beiträge
-  - `archiv/`: geprüfte Beiträge
-  - `sicherung.json`: die Zeitstrahlen
+  - `aufgabe.json`: das aktuelle Thema und der Arbeitsauftrag
+  - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei
+  - `archiv/`: gelöschte Abgaben
+  - `sicherung.json`: die Zeitstrahlen der Lehrkraft
 
-  Nach Abschluss einer Unterrichtseinheit können `eingang/` und `archiv/` gelöscht werden.
+  Nach Abschluss einer Unterrichtseinheit können `abgaben/` und `archiv/` gelöscht werden.
 - **Nur Vornamen:** Die Schülerseite fragt ausschließlich nach Vornamen.
-- **Getrennte Zugänge:** Lehrkraft-Ansicht, Eingang und Sicherung sind nur am Laptop selbst erreichbar (`localhost`). Die iPads sehen ausschließlich die Beitragsseite und können nur senden, nichts lesen.
+- **Getrennte Zugänge:** Lehrkraft-Ansicht, Übersicht der Abgaben und Sicherung sind nur am Laptop selbst erreichbar (`localhost`). Die iPads sehen ausschließlich die Schülerseite. Eine Gruppe kann nur den eigenen Zeitstrahl laden und ändern, und nur mit ihrem Code. Falsch eingegebene Codes werden nach zehn Versuchen pro Minute gesperrt.
 - **Keine externen Verbindungen:** Die Schriften liegen im Ordner `fonts/`, es wird nichts aus dem Internet geladen.
 - **Nicht ins Repository:** Der Ordner `daten/` ist in `.gitignore` eingetragen und landet nie auf GitHub.
 
@@ -121,7 +127,7 @@ tests/               node tests/parser.test.js
 
 Mögliche Anknüpfungspunkte im Unterricht:
 
-- **Client und Server:** Was schickt das iPad an `/api/beitraege`? Warum darf nur `localhost` den Eingang lesen?
+- **Client und Server:** Was schickt das iPad an `/api/abgaben`? Warum darf nur `localhost` die Liste aller Abgaben lesen? Wie schützt der Code einen Zeitstrahl vor fremden Änderungen?
 - **Parser und reguläre Ausdrücke:** Wie erkennt `parseDate()` „9. November 1918“? Welche Eingaben scheitern?
 - **Zeitrechnung ohne Jahr 0:** Intern zählt der Parser „astronomisch“ (1 v. Chr. = 0). Warum ist das praktisch?
 - **Greedy-Algorithmus:** `layout()` verteilt Beschriftungen auf Spuren, damit sich nichts überlappt.

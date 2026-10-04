@@ -177,7 +177,15 @@
   /* ---------- Klassenserver (wenn die Seite über server.js läuft) ---------- */
 
   const API_HEADERS = { 'X-Zeitstrahl': 'lehrkraft' };
-  const server = { on: false, info: null, pending: [], seen: new Set(), offline: false, timer: 0 };
+  const server = { on: false, info: null, offline: false, ready: false, abgaben: [], known: new Map(), task: { thema: '', auftrag: '' } };
+
+  async function api(pathname, opts = {}) {
+    const headers = { ...API_HEADERS, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) };
+    const res = await fetch(pathname, { cache: 'no-store', ...opts, headers });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.fehler || 'Der Server hat die Anfrage abgelehnt.');
+    return d;
+  }
 
   async function detectServer() {
     if (!/^https?:$/.test(location.protocol)) return;
@@ -195,67 +203,203 @@
     }
   }
 
-  async function pollInbox() {
+  const fmtWhen = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+    return d.toDateString() === new Date().toDateString() ? 'um ' + time : 'am ' + d.toLocaleDateString('de-DE') + ', ' + time;
+  };
+
+  // Abgaben nach Thema gruppieren (Reihenfolge wie vom Server geliefert)
+  function groupByThema(list) {
+    const groups = new Map();
+    for (const a of list) {
+      if (!groups.has(a.thema)) groups.set(a.thema, []);
+      groups.get(a.thema).push(a);
+    }
+    return groups;
+  }
+
+  const signature = (list) => JSON.stringify(list.map((a) => [a.id, a.titel, a.von, a.status, a.anzahl, a.aktualisiert]));
+
+  // Die Schüler-Zeitstrahlen der Klasse regelmäßig abfragen
+  async function pollAbgaben() {
     try {
-      const res = await fetch('api/eingang', { headers: API_HEADERS, cache: 'no-store' });
-      if (!res.ok) throw new Error('Eingang');
-      const d = await res.json();
-      const list = Array.isArray(d.beitraege) ? d.beitraege : [];
-      const fresh = list.filter((b) => !server.seen.has(b.id));
-      fresh.forEach((b) => server.seen.add(b.id));
-      if (fresh.length && server.pending.length + fresh.length > 0 && !present && !$('review').open && server.ready) {
-        const b = fresh[0];
-        toast(fresh.length === 1
-          ? `Neuer Beitrag: „${b.titel}“${b.von ? ' von ' + b.von : ''}`
-          : `${fresh.length} neue Beiträge eingegangen.`);
+      const d = await api('api/abgaben');
+      const list = Array.isArray(d.abgaben) ? d.abgaben : [];
+      const listChanged = signature(list) !== signature(server.abgaben);
+      for (const a of list) {
+        const before = server.known.get(a.id);
+        if (server.ready && !present && a.status === 'abgegeben' && (!before || before.status !== 'abgegeben')) {
+          toast(`Abgegeben: „${a.titel || a.thema}“ von ${a.von}`);
+        }
+        server.known.set(a.id, a);
       }
-      server.ready = true;
-      server.pending = list;
+      server.abgaben = list;
       server.offline = false;
+      server.ready = true;
+      if (listChanged) {
+        renderPicker();
+        renderAbgabenList();
+        renderTlNav();
+      }
+      // Der gerade gezeigte Schüler-Zeitstrahl wurde verändert oder gelöscht
+      if (studentView && !present) {
+        const cur = list.find((a) => a.id === studentView.abgabeId);
+        if (!cur) {
+          toast('Dieser Schüler-Zeitstrahl wurde gelöscht.');
+          switchTo(state.activeId);
+        } else if (cur.aktualisiert !== studentView.meta.aktualisiert) {
+          reloadStudentView();
+        }
+      }
     } catch (e) {
       server.offline = true;
     }
-    renderInbox();
+    renderServerUi();
   }
 
-  function renderInbox() {
-    const b = $('btn-inbox');
-    const n = server.pending.length;
+  function renderServerUi() {
+    const b = $('btn-abgaben');
+    const n = server.abgaben.length;
     b.hidden = !server.on;
-    b.textContent = server.offline ? 'Server nicht erreichbar' : n ? `Eingang (${n})` : 'Eingang';
-    b.classList.toggle('has-new', n > 0 && !server.offline);
+    b.textContent = server.offline ? 'Server nicht erreichbar' : n ? `Schüler-Zeitstrahlen (${n})` : 'Schüler-Zeitstrahlen';
     document.querySelectorAll('.connect-btn').forEach((c) => { c.hidden = !server.on; });
     $('link-student').hidden = server.on;
   }
 
-  function openInbox() {
-    if (server.offline) {
-      toast('Der Server antwortet nicht. Läuft das Fenster „Server starten“ noch?');
+  // Übersicht für die Lehrkraft, mit Code für den Fall, dass eine Gruppe ihn vergessen hat
+  function renderAbgabenList() {
+    const box = $('abgaben-list');
+    box.textContent = '';
+    if (!server.abgaben.length) {
+      const p = document.createElement('p');
+      p.className = 'empty-list';
+      p.textContent = 'Noch keine Schüler-Zeitstrahlen. Über „iPads verbinden“ kommt die Klasse auf die Schülerseite.';
+      box.append(p);
       return;
     }
-    if (!server.pending.length) {
-      toast('Noch keine Beiträge eingegangen. Über „iPads verbinden“ kommt die Klasse auf die Beitragsseite.');
-      return;
+    for (const [thema, list] of groupByThema(server.abgaben)) {
+      const h = document.createElement('h3');
+      h.textContent = thema;
+      const ul = document.createElement('ul');
+      ul.className = 'ab-list';
+      for (const a of list) {
+        const li = document.createElement('li');
+        li.className = 'ab';
+        const chip = document.createElement('span');
+        chip.className = 'ab-status' + (a.status === 'abgegeben' ? ' done' : '');
+        chip.textContent = a.status === 'abgegeben' ? 'abgegeben' : 'in Arbeit';
+        const text = document.createElement('div');
+        text.className = 'ab-text';
+        const t = document.createElement('strong');
+        t.textContent = a.titel || a.thema;
+        const m = document.createElement('span');
+        m.className = 'ab-meta';
+        m.textContent = `von ${a.von} · ${a.anzahl} ${a.anzahl === 1 ? 'Ereignis' : 'Ereignisse'} · gespeichert ${fmtWhen(a.aktualisiert)} · Code ${a.code}`;
+        text.append(t, m);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn';
+        btn.textContent = 'Zeigen';
+        btn.addEventListener('click', () => {
+          $('abgaben').close();
+          switchTo('abgabe:' + a.id);
+        });
+        li.append(chip, text, btn);
+        ul.append(li);
+      }
+      box.append(h, ul);
     }
-    const list = server.pending.map((b) => {
-      const when = b.empfangen ? new Date(b.empfangen).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
-      return toPending(b, when ? `eingegangen ${when} Uhr` : 'eingegangen');
-    });
-    openReview(list, 'server');
   }
 
-  async function markDone(ids) {
-    if (!ids.length) return;
-    try {
-      await fetch('api/eingang/erledigt', {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
+  // Ein Schüler-Zeitstrahl wird für die Anzeige in dieselbe Form gebracht wie die eigenen
+  function abgabeToTimeline(a) {
+    const images = {};
+    const lines = (a.eintraege || []).map((e, i) => {
+      let key = '';
+      if (validImage(e.bild)) {
+        key = 'b' + i;
+        images[key] = e.bild;
+      }
+      return Parser.buildLine({
+        datum: e.datum, titel: e.titel, kategorie: e.kategorie, beschreibung: e.beschreibung, quelle: e.bildquelle, bild: key,
       });
-    } catch (e) {
-      toast('Der Server antwortet nicht. Die Beiträge bleiben im Eingang.');
+    });
+    return {
+      id: 'abgabe:' + a.id,
+      abgabeId: a.id,
+      name: [a.titel || a.thema, a.von].filter(Boolean).join(' – '),
+      source: lines.join('\n') + '\n',
+      images,
+      meta: {
+        titel: a.titel, von: a.von, thema: a.thema, status: a.status, aktualisiert: a.aktualisiert, code: a.code, anzahl: lines.length,
+      },
+    };
+  }
+
+  async function reloadStudentView() {
+    try {
+      studentView = abgabeToTimeline(await api('api/abgaben/' + studentView.abgabeId));
+      reparse();
+      keepSelection();
+      renderHeading();
+      renderStudentPanel();
+      refreshLists();
+      requestRender();
+    } catch (e) { /* beim nächsten Abfragen erneut */ }
+  }
+
+  function renderStudentPanel() {
+    const sv = studentView;
+    $('editor-own').hidden = !!sv;
+    $('student-panel').hidden = !sv;
+    if (!sv) return;
+    const m = sv.meta;
+    $('sp-title').textContent = m.titel || m.thema;
+    $('sp-meta').textContent = [
+      `von ${m.von}`,
+      `Thema: ${m.thema}`,
+      `${m.anzahl} ${m.anzahl === 1 ? 'Ereignis' : 'Ereignisse'}`,
+      `${m.status === 'abgegeben' ? 'abgegeben' : 'in Arbeit, gespeichert'} ${fmtWhen(m.aktualisiert)}`,
+      `Code ${m.code}`,
+    ].join(' · ');
+  }
+
+  function copyStudentView() {
+    const sv = studentView;
+    if (!sv) return;
+    const t = addTimeline({ name: sv.name, source: sv.source, images: clone(sv.images) });
+    switchTo(t.id);
+    toast(`„${displayName(t)}“ liegt jetzt in deinen Zeitstrahlen.`);
+  }
+
+  let spDelArmed = 0;
+  async function deleteStudentView() {
+    const b = $('sp-del');
+    if (!studentView) return;
+    if (!spDelArmed) {
+      b.textContent = 'Wirklich löschen?';
+      b.classList.add('armed');
+      spDelArmed = setTimeout(() => {
+        spDelArmed = 0;
+        b.textContent = 'Abgabe löschen';
+        b.classList.remove('armed');
+      }, 4000);
+      return;
     }
-    pollInbox();
+    clearTimeout(spDelArmed);
+    spDelArmed = 0;
+    b.textContent = 'Abgabe löschen';
+    b.classList.remove('armed');
+    try {
+      await api('api/abgaben/' + studentView.abgabeId, { method: 'DELETE' });
+      toast('Abgabe gelöscht. Sie liegt noch im Ordner daten/archiv auf dem Laptop.');
+      await switchTo(state.activeId);
+      pollAbgaben();
+    } catch (e) {
+      toast(e.message);
+    }
   }
 
   let backupTimer = 0;
@@ -285,23 +429,52 @@
       for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + quiet} ${r + quiet}h1v1h-1z`;
     }
     const size = n + quiet * 2;
-    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR-Code zur Beitragsseite" shape-rendering="crispEdges">`
+    return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR-Code zur Schülerseite" shape-rendering="crispEdges">`
       + `<rect width="${size}" height="${size}" fill="#ffffff"/><path d="${d}" fill="#000000"/></svg>`;
+  }
+
+  async function loadTask() {
+    try {
+      server.task = await api('api/aufgabe');
+    } catch (e) { /* bleibt leer */ }
+  }
+
+  function renderTaskState() {
+    const t = server.task.thema;
+    $('task-state').textContent = t
+      ? `Die iPads zeigen jetzt das Thema „${t}“.`
+      : 'Noch kein Thema festgelegt. Ohne Thema wählen die Schüler selbst eins.';
+    $('connect-thema').textContent = t || 'frei wählbar';
+  }
+
+  async function saveTask(ev) {
+    ev.preventDefault();
+    try {
+      server.task = await api('api/aufgabe', {
+        method: 'PUT',
+        body: JSON.stringify({ thema: $('task-thema').value.trim(), auftrag: $('task-auftrag').value.trim() }),
+      });
+      renderTaskState();
+      toast(server.task.thema ? `Thema „${server.task.thema}“ festgelegt.` : 'Thema zurückgesetzt.');
+    } catch (e) {
+      toast(e.message);
+    }
   }
 
   async function openConnect() {
     await detectServer(); // Adressen neu abfragen, falls das WLAN gewechselt hat
+    await loadTask();
     const ips = (server.info && server.info.adressen) || [];
     const port = server.info ? server.info.port : 8080;
-    const thema = displayName(activeTl()).replace(/\s*\(Beispiel\)\s*$/, '');
+    $('task-thema').value = server.task.thema || displayName(ownTl()).replace(/\s*\(Beispiel\)\s*$/, '');
+    $('task-auftrag').value = server.task.auftrag || '';
+    renderTaskState();
     $('connect-grid').hidden = !ips.length;
     $('connect-none').hidden = ips.length > 0;
     if (ips.length) {
       const hostPort = (ip) => (port === 80 ? ip : `${ip}:${port}`); // Port 80 muss man nicht eintippen
-      const base = `http://${hostPort(ips[0])}`;
-      $('connect-qr').innerHTML = qrSvg(`${base}/beitrag.html?thema=${encodeURIComponent(thema)}`);
+      $('connect-qr').innerHTML = qrSvg(`http://${hostPort(ips[0])}/`);
       $('connect-url').textContent = hostPort(ips[0]); // Safari ergänzt http:// selbst
-      $('connect-thema').textContent = thema;
       const alt = ips.slice(1).map(hostPort);
       $('connect-alt').textContent = alt.length ? 'Falls es nicht klappt: ' + alt.join(' · ') : '';
       $('connect-alt').hidden = !alt.length;
@@ -311,9 +484,36 @@
     else dlg.setAttribute('open', '');
   }
 
+  /* ---------- Zeitstrahlen nacheinander zeigen (Tafelbild) ---------- */
+
+  // Bei einem Schüler-Zeitstrahl: alle Zeitstrahlen desselben Themas, sonst die eigenen
+  function timelineSequence() {
+    if (studentView) {
+      const thema = studentView.meta.thema;
+      return server.abgaben.filter((a) => a.thema === thema).map((a) => 'abgabe:' + a.id);
+    }
+    return state.timelines.map((t) => t.id);
+  }
+  const currentKey = () => (studentView ? studentView.id : state.activeId);
+
+  function renderTlNav() {
+    const seq = timelineSequence();
+    const i = seq.indexOf(currentKey());
+    $('tl-nav').hidden = seq.length < 2;
+    $('tl-nav-count').textContent = seq.length > 1 ? `Zeitstrahl ${i + 1} von ${seq.length}` : '';
+  }
+
+  async function stepTimeline(d) {
+    const seq = timelineSequence();
+    if (seq.length < 2) return;
+    const i = seq.indexOf(currentKey());
+    await switchTo(seq[(i + d + seq.length) % seq.length]);
+  }
+
   /* ---------- Zustand ---------- */
 
   let state = freshState();
+  let studentView = null; // angezeigter Schüler-Zeitstrahl (nur ansehen) oder null
   let parsed = { items: [], problems: [], cats: [] };
   let view = { v0: 1400, v1: 2030 };
   let userMovedView = false;
@@ -324,7 +524,8 @@
   let fsByUs = false;
   const reveal = { on: false, n: 0 };
 
-  const activeTl = () => state.timelines.find((t) => t.id === state.activeId) || state.timelines[0];
+  const ownTl = () => state.timelines.find((t) => t.id === state.activeId) || state.timelines[0];
+  const activeTl = () => studentView || ownTl();
   const displayName = (t) => (t.name || '').trim() || 'Ohne Titel';
   const visibleItems = () => parsed.items.filter((i) => !hiddenCats.has(i.catKey));
   const revealOrder = () => visibleItems().slice().sort((a, b) => a.start - b.start || a.line - b.line);
@@ -429,13 +630,27 @@
   function renderPicker() {
     const sel = $('tl-select');
     sel.textContent = '';
+    const own = document.createElement('optgroup');
+    own.label = 'Meine Zeitstrahlen';
     for (const t of state.timelines) {
       const o = document.createElement('option');
       o.value = t.id;
       o.textContent = displayName(t);
-      sel.append(o);
+      own.append(o);
     }
-    sel.value = state.activeId;
+    sel.append(own);
+    for (const [thema, list] of groupByThema(server.abgaben)) {
+      const g = document.createElement('optgroup');
+      g.label = `Schüler: ${thema}`;
+      for (const a of list) {
+        const o = document.createElement('option');
+        o.value = 'abgabe:' + a.id;
+        o.textContent = `${a.titel || a.thema} – ${a.von}${a.status === 'abgegeben' ? '' : ' (in Arbeit)'}`;
+        g.append(o);
+      }
+      sel.append(g);
+    }
+    sel.value = currentKey();
     $('btn-del').disabled = state.timelines.length < 2;
   }
 
@@ -506,7 +721,7 @@
   }
 
   function loadEditor() {
-    const t = activeTl();
+    const t = ownTl();
     $('tl-name').value = t.name;
     $('tl-source').value = t.source;
   }
@@ -570,14 +785,14 @@
     $('detail-meta').textContent = meta.join(' · ');
     $('detail-meta').hidden = !meta.length;
 
-    $('detail-tools').hidden = present;
+    $('detail-tools').hidden = present || !!studentView;
     $('detail-img-add').textContent = src ? 'Bild ersetzen' : 'Bild hinzufügen';
     $('detail-img-del').hidden = !src;
   }
 
   // Ersetzt oder entfernt eine Zusatzangabe wie {bild:…} in einer Zeile
   function setLineMeta(lineIdx, key, value) {
-    const tl = activeTl();
+    const tl = ownTl();
     const lines = tl.source.split('\n');
     let line = lines[lineIdx] || '';
     line = line.replace(new RegExp('\\s*\\{' + key + ':[^{}]*\\}', 'gi'), '');
@@ -597,8 +812,20 @@
 
   /* ---------- Zeitstrahl wechseln, anlegen, löschen ---------- */
 
-  function switchTo(id) {
-    state.activeId = id;
+  async function switchTo(id) {
+    if (typeof id === 'string' && id.startsWith('abgabe:')) {
+      try {
+        studentView = abgabeToTimeline(await api('api/abgaben/' + id.slice(7)));
+      } catch (e) {
+        toast(e.message || 'Der Schüler-Zeitstrahl ließ sich nicht laden.');
+        renderPicker();
+        return;
+      }
+    } else {
+      studentView = null;
+      if (state.timelines.some((t) => t.id === id)) state.activeId = id;
+      changed();
+    }
     hiddenCats = new Set();
     selectedId = null;
     selectedTitle = null;
@@ -607,9 +834,10 @@
     reparse();
     renderPicker();
     renderHeading();
+    renderStudentPanel();
     refreshLists();
+    renderTlNav();
     refit(false);
-    changed();
   }
 
   function addTimeline(t) {
@@ -651,14 +879,14 @@
     selectedTitle = it ? it.title : null;
     renderDetail();
     renderReveal();
-    if (it && d > 0) {
+    // Nur verschieben, wenn das Ereignis nicht ganz zu sehen ist – dann so, dass es ganz hineinpasst
+    if (it && d > 0 && (it.start < view.v0 || it.end > view.v1)) {
       const span = view.v1 - view.v0;
-      if (it.start < view.v0 + span * 0.05 || it.start > view.v1 - span * 0.3) {
-        const v0 = it.start - span * 0.35;
-        userMovedView = true;
-        animateTo(clampView({ v0, v1: v0 + span }));
-        return;
-      }
+      const len = it.end - it.start;
+      const v0 = len < span * 0.8 ? it.start - (span - len) / 2 : it.start - span * 0.05;
+      userMovedView = true;
+      animateTo(clampView({ v0, v1: v0 + Math.max(span, len * 1.1) }));
+      return;
     }
     requestRender();
   }
@@ -799,28 +1027,7 @@
 
   const str = (v, max) => (typeof v === 'string' ? v.slice(0, max || 2000) : '');
 
-  function toPending(b, datei) {
-    const e = {
-      datum: str(b.datum, 80),
-      titel: str(b.titel, 200),
-      kategorie: str(b.kategorie, 60),
-      beschreibung: str(b.beschreibung, 2000),
-      von: str(b.von, 120),
-      quelle: str(b.bildquelle || b.quelle, 300),
-      thema: str(b.thema, 140),
-      bild: validImage(b.bild) ? b.bild : '',
-      datei,
-      serverId: typeof b.id === 'string' ? b.id : '',
-    };
-    const r = Parser.parseDateField(e.datum, NOW);
-    e.fehler = !e.titel.trim() ? 'Titel fehlt.' : r.error || '';
-    e.datumText = r.error ? e.datum || '(ohne Datum)' : r.kind === 'point' ? Parser.fmtLong(r.a) : `${Parser.fmtLong(r.a)} bis ${Parser.fmtLong(r.b)}`;
-    e.waehlen = !e.fehler;
-    return e;
-  }
-
   async function importFiles(fileList) {
-    const beitraege = [];
     const fehler = [];
     let lastAdded = null;
     let added = 0;
@@ -831,8 +1038,17 @@
       if (/\.json$/i.test(file.name) || /^\s*\{/.test(text)) {
         let data = null;
         try { data = JSON.parse(text); } catch (e) { /* unten gemeldet */ }
-        if (isObj(data) && data.typ === 'zeitstrahl-beitrag' && Array.isArray(data.beitraege)) {
-          for (const b of data.beitraege) if (isObj(b)) beitraege.push(toPending(Object.assign({ thema: data.thema }, b), file.name));
+        if (isObj(data) && data.typ === 'zeitstrahl-schueler' && Array.isArray(data.eintraege)) {
+          // Schüler-Zeitstrahl ohne Server: wird zu einem eigenen Zeitstrahl
+          const tl = abgabeToTimeline({
+            id: '', thema: str(data.thema, 140), titel: str(data.titel, 140), von: str(data.von, 120),
+            eintraege: data.eintraege.filter(isObj).map((e) => ({
+              datum: str(e.datum, 80), titel: str(e.titel, 200), kategorie: str(e.kategorie, 60),
+              beschreibung: str(e.beschreibung, 2000), bildquelle: str(e.bildquelle, 300), bild: e.bild,
+            })),
+          });
+          lastAdded = addTimeline({ name: tl.name || 'Schüler-Zeitstrahl', source: tl.source, images: tl.images });
+          added++;
         } else if (isObj(data) && Array.isArray(data.timelines)) {
           for (const t of data.timelines) {
             if (!isTl(t)) continue;
@@ -855,115 +1071,7 @@
       switchTo(lastAdded.id);
       toast(added === 1 ? `„${displayName(lastAdded)}“ geöffnet.` : `${added} Zeitstrahlen geöffnet.`);
     }
-    if (beitraege.length) openReview(beitraege);
-    else if (fehler.length) toast(fehler.join(' '));
-  }
-
-  let pending = [];
-  let reviewSource = 'datei';
-
-  function updateReviewCount() {
-    const n = pending.filter((e) => e.waehlen).length;
-    const fromServer = reviewSource === 'server';
-    $('review-accept').textContent = n === 0 && fromServer
-      ? 'Alle verwerfen'
-      : n === 1 ? '1 Beitrag übernehmen' : `${n} Beiträge übernehmen`;
-    $('review-accept').disabled = n === 0 && !fromServer;
-  }
-
-  function openReview(list, source) {
-    pending = list;
-    reviewSource = source || 'datei';
-    $('review-note').hidden = reviewSource !== 'server';
-    const ul = $('review-list');
-    ul.textContent = '';
-    list.forEach((e, i) => {
-      const li = document.createElement('li');
-      li.className = 'rv';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.id = 'rv-' + i;
-      cb.checked = e.waehlen;
-      cb.addEventListener('change', () => { e.waehlen = cb.checked; updateReviewCount(); });
-      const label = document.createElement('label');
-      label.htmlFor = cb.id;
-      label.className = 'rv-body';
-      if (e.bild) {
-        const img = document.createElement('img');
-        img.src = e.bild;
-        img.alt = '';
-        img.className = 'rv-img';
-        label.append(img);
-      }
-      const box = document.createElement('span');
-      box.className = 'rv-text';
-      const t = document.createElement('strong');
-      t.textContent = e.titel || '(ohne Titel)';
-      const d = document.createElement('span');
-      d.className = 'rv-date';
-      d.textContent = e.datumText + (e.kategorie ? ' · ' + e.kategorie : '');
-      box.append(t, d);
-      if (e.beschreibung) {
-        const p = document.createElement('span');
-        p.className = 'rv-desc';
-        p.textContent = e.beschreibung;
-        box.append(p);
-      }
-      if (e.fehler) {
-        const w = document.createElement('span');
-        w.className = 'rv-warn';
-        w.textContent = e.fehler + ' Nach dem Übernehmen im Editor korrigieren.';
-        box.append(w);
-      }
-      const from = document.createElement('span');
-      from.className = 'rv-from';
-      from.textContent = [e.von ? 'von ' + e.von : '', e.quelle ? 'Bildquelle: ' + e.quelle : '', e.datei].filter(Boolean).join(' · ');
-      box.append(from);
-      label.append(box);
-      li.append(cb, label);
-      ul.append(li);
-    });
-    $('review-target').textContent = displayName(activeTl());
-    $('review-summary').textContent = list.length === 1 ? '1 Beitrag' : `${list.length} Beiträge`;
-    updateReviewCount();
-    const dlg = $('review');
-    if (typeof dlg.showModal === 'function') dlg.showModal();
-    else dlg.setAttribute('open', '');
-  }
-
-  function closeReview() {
-    pending = [];
-    const dlg = $('review');
-    if (dlg.open && typeof dlg.close === 'function') dlg.close();
-    else dlg.removeAttribute('open');
-  }
-
-  function acceptReview() {
-    const chosen = pending.filter((e) => e.waehlen);
-    const done = reviewSource === 'server' ? pending.map((e) => e.serverId).filter(Boolean) : [];
-    if (chosen.length) {
-      const tl = activeTl();
-      const lines = [`# Beiträge übernommen am ${new Date().toLocaleDateString('de-DE')}`];
-      for (const e of chosen) {
-        let key = '';
-        if (e.bild) {
-          key = Bild.neuerSchluessel(tl.images);
-          tl.images[key] = e.bild;
-        }
-        lines.push(Parser.buildLine({
-          datum: e.datum, titel: e.titel || 'Ohne Titel', kategorie: e.kategorie, beschreibung: e.beschreibung,
-          von: e.von, quelle: e.quelle, bild: key,
-        }));
-      }
-      tl.source = (tl.source.trim() ? tl.source.replace(/\s*$/, '\n\n') : '') + lines.join('\n') + '\n';
-      afterSourceChange();
-      refit(true);
-      toast(chosen.length === 1 ? '1 Beitrag übernommen.' : `${chosen.length} Beiträge übernommen.`);
-    } else if (done.length) {
-      toast('Beiträge verworfen.');
-    }
-    closeReview();
-    markDone(done);
+    if (fehler.length) toast(fehler.join(' '));
   }
 
   /* ---------- Farben ---------- */
@@ -996,15 +1104,17 @@
     // Zeitstrahl-Auswahl und Editor
     $('tl-select').addEventListener('change', (e) => switchTo(e.target.value));
     $('tl-name').addEventListener('input', () => {
-      activeTl().name = $('tl-name').value;
+      if (studentView) return;
+      ownTl().name = $('tl-name').value;
       renderHeading();
       const opt = $('tl-select').selectedOptions[0];
-      if (opt) opt.textContent = displayName(activeTl());
+      if (opt) opt.textContent = displayName(ownTl());
       changed();
     });
     let parseTimer = 0;
     $('tl-source').addEventListener('input', () => {
-      activeTl().source = $('tl-source').value;
+      if (studentView) return;
+      ownTl().source = $('tl-source').value;
       changed();
       clearTimeout(parseTimer);
       parseTimer = setTimeout(() => {
@@ -1267,19 +1377,22 @@
     });
 
     // Klassenserver
-    $('btn-inbox').addEventListener('click', openInbox);
+    $('btn-abgaben').addEventListener('click', () => {
+      if (server.offline) {
+        toast('Der Server antwortet nicht. Läuft das Fenster „Server starten“ noch?');
+        return;
+      }
+      renderAbgabenList();
+      $('abgaben').showModal();
+    });
+    $('abgaben-close').addEventListener('click', () => $('abgaben').close());
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
-
-    // Beiträge prüfen
-    $('review-accept').addEventListener('click', acceptReview);
-    $('review-cancel').addEventListener('click', closeReview);
-    $('review').addEventListener('cancel', () => { pending = []; });
-    $('review-all').addEventListener('click', () => {
-      const all = pending.every((e) => e.waehlen);
-      pending.forEach((e, i) => { e.waehlen = !all; $('rv-' + i).checked = !all; });
-      updateReviewCount();
-    });
+    $('task-form').addEventListener('submit', saveTask);
+    $('sp-copy').addEventListener('click', copyStudentView);
+    $('sp-del').addEventListener('click', deleteStudentView);
+    $('tl-prev').addEventListener('click', () => stepTimeline(-1));
+    $('tl-next').addEventListener('click', () => stepTimeline(1));
 
     // Tastatur allgemein
     document.addEventListener('keydown', (e) => {
@@ -1289,7 +1402,7 @@
         toast('In diesem Browser gespeichert. Zum Weitergeben: Datei → Als Textdatei sichern.');
         return;
       }
-      if ($('review').open || $('connect').open) return;
+      if ($('abgaben').open || $('connect').open) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
       if (present) {
@@ -1297,6 +1410,10 @@
         if (reveal.on && tag !== 'button') {
           if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); stepReveal(1); return; }
           if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); stepReveal(-1); return; }
+        } else if (tag !== 'button') {
+          // Ohne Aufdecken blättert der Presenter (Bild auf/ab) durch die Zeitstrahlen
+          if (e.key === 'PageDown') { e.preventDefault(); stepTimeline(1); return; }
+          if (e.key === 'PageUp') { e.preventDefault(); stepTimeline(-1); return; }
         }
       } else if (e.key === 'Escape' && selectedId) {
         select(null);
@@ -1334,10 +1451,13 @@
     view = fitView();
     render();
     showStatus(false);
+    renderStudentPanel();
+    renderTlNav();
     if (server.on) {
-      renderInbox();
-      pollInbox();
-      server.timer = setInterval(pollInbox, 4000);
+      renderServerUi();
+      loadTask();
+      pollAbgaben();
+      setInterval(pollAbgaben, 5000);
       scheduleBackup();
     }
   }

@@ -28,13 +28,13 @@
     <div class="actions">
       <span id="save-status" class="status" role="status" aria-live="polite"></span>
       <button type="button" class="btn connect-btn" hidden>iPads verbinden</button>
-      <button type="button" class="btn" id="btn-inbox" hidden>Eingang</button>
+      <button type="button" class="btn" id="btn-abgaben" hidden>Schüler-Zeitstrahlen</button>
       <a class="btn ghost" href="beitrag.html" target="_blank" rel="noopener" id="link-student">Schülerseite</a>
       <button type="button" class="btn ghost theme-btn" id="btn-theme">Farben: automatisch</button>
       <div class="menu">
         <button type="button" id="btn-file" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu">Datei</button>
         <div id="file-menu" class="menu-list" role="menu" hidden>
-          <button type="button" role="menuitem" data-act="import">Öffnen … (Schülerbeiträge, .txt, .json)</button>
+          <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json)</button>
           <hr>
           <button type="button" role="menuitem" data-act="export-txt">Als Textdatei sichern (.txt)</button>
           <button type="button" role="menuitem" data-act="export-json">Mit Bildern sichern (.json)</button>
@@ -91,6 +91,11 @@
         <button type="button" class="btn icon" id="reveal-next" aria-label="Nächster Schritt" hidden>›</button>
         <span id="reveal-keys" class="reveal-keys" hidden>Weiter mit → oder Leertaste</span>
       </div>
+      <div class="tl-nav" id="tl-nav" hidden>
+        <button type="button" class="btn" id="tl-prev">‹ Vorheriger Zeitstrahl</button>
+        <span class="reveal-count" id="tl-nav-count"></span>
+        <button type="button" class="btn" id="tl-next">Nächster Zeitstrahl ›</button>
+      </div>
       <div class="present-right">
         <button type="button" class="btn ghost connect-btn" hidden>iPads verbinden</button>
         <button type="button" class="btn ghost theme-btn">Farben: automatisch</button>
@@ -103,6 +108,7 @@
 
   <section class="bench">
     <div class="editor">
+      <div class="editor-own" id="editor-own">
       <div class="field">
         <label for="tl-name">Titel</label>
         <input id="tl-name" type="text" maxlength="140" autocomplete="off">
@@ -116,6 +122,18 @@
         <button type="button" class="btn" id="btn-new">Neuer Zeitstrahl</button>
         <button type="button" class="btn" id="btn-dup">Duplizieren</button>
         <button type="button" class="btn ghost danger" id="btn-del">Löschen</button>
+      </div>
+      </div>
+
+      <div class="student-panel" id="student-panel" hidden>
+        <p class="eyebrow">Schüler-Zeitstrahl</p>
+        <h2 id="sp-title"></h2>
+        <p class="sp-meta" id="sp-meta"></p>
+        <div class="manage">
+          <button type="button" class="btn" id="sp-copy">In meine Zeitstrahlen kopieren</button>
+          <button type="button" class="btn ghost danger" id="sp-del">Abgabe löschen</button>
+        </div>
+        <p class="note">Schüler-Zeitstrahlen lassen sich hier ansehen, präsentieren und als Bild sichern. Zum Bearbeiten erst in die eigenen Zeitstrahlen kopieren.</p>
       </div>
     </div>
 
@@ -132,30 +150,41 @@
         <dt><code># Notiz</code></dt><dd>erscheint nicht im Zeitstrahl</dd>
       </dl>
       <p>Feste Farben haben Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine Farbe.</p>
-      <p>Schülerinnen und Schüler erstellen Beiträge auf der <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> und geben die Datei ab. Hier über <strong>Datei → Öffnen</strong> (oder per Ziehen auf die Seite) prüfen und übernehmen.</p>
+      <p>Schülerinnen und Schüler bauen über <strong>iPads verbinden</strong> eigene Zeitstrahlen zum vorgegebenen Thema. Abgaben erscheinen oben in der Auswahl unter „Schüler: Thema“. Ohne Server speichert die <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> eine Datei, die hier über <strong>Datei → Öffnen</strong> eingelesen wird.</p>
       <p>Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.</p>
-      <p>Im Tafelbild blättern Pfeiltasten, Leertaste oder ein Presenter beim schrittweisen Aufdecken weiter.</p>
+      <p>Im Tafelbild blättern Pfeiltasten, Leertaste oder ein Presenter beim schrittweisen Aufdecken weiter. Ohne Aufdecken wechseln Bild auf/Bild ab (Presenter) zum nächsten Zeitstrahl.</p>
     </aside>
   </section>
 
 </div>
 
-<dialog id="review" class="review" aria-labelledby="review-title">
+<dialog id="abgaben" class="review" aria-labelledby="abgaben-title">
   <div class="review-head">
-    <h2 id="review-title">Eingereichte Beiträge prüfen</h2>
-    <p><span id="review-summary"></span> gefunden. Ausgewählte Beiträge kommen in <strong id="review-target"></strong>.</p>
-    <button type="button" class="linkbtn" id="review-all">Alle an- oder abwählen</button>
-    <p class="review-note" id="review-note" hidden>Nicht ausgewählte Beiträge werden verworfen. Sie bleiben im Ordner <code>daten/archiv</code> auf dem Laptop.</p>
+    <h2 id="abgaben-title">Schüler-Zeitstrahlen</h2>
+    <p>Zum Zeigen auswählen. Im Tafelbild blätterst du mit „Nächster Zeitstrahl“ durch alle Zeitstrahlen eines Themas.</p>
   </div>
-  <ul id="review-list" class="review-list"></ul>
+  <div class="abgaben-list" id="abgaben-list"></div>
   <div class="review-foot">
-    <button type="button" class="btn" id="review-cancel">Abbrechen</button>
-    <button type="button" class="btn primary" id="review-accept">Übernehmen</button>
+    <button type="button" class="btn primary" id="abgaben-close">Schließen</button>
   </div>
 </dialog>
 
 <dialog id="connect" class="connect" aria-labelledby="connect-title">
-  <h2 id="connect-title">iPads verbinden</h2>
+  <h2 id="connect-title">Thema vorgeben und iPads verbinden</h2>
+  <form class="task-form" id="task-form">
+    <div class="field">
+      <label for="task-thema">Thema für die Klasse</label>
+      <input id="task-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
+    </div>
+    <div class="field">
+      <label for="task-auftrag">Arbeitsauftrag <span class="label-note">optional</span></label>
+      <textarea id="task-auftrag" rows="2" maxlength="1000" placeholder="z. B. Mindestens 6 Ereignisse, davon 2 mit Bild und Bildquelle."></textarea>
+    </div>
+    <div class="task-actions">
+      <button type="submit" class="btn primary">Thema festlegen</button>
+      <span class="task-state" id="task-state" role="status"></span>
+    </div>
+  </form>
   <div class="connect-grid" id="connect-grid">
     <div id="connect-qr" class="connect-qr"></div>
     <div class="connect-text">

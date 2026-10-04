@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Beitrag zum Zeitstrahl</title>
+<title>Mein Zeitstrahl</title>
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,29 +24,46 @@
   </header>
 
   <section class="student-intro">
-    <h1>Beitrag zum Zeitstrahl</h1>
+    <p class="eyebrow" id="topic-label" hidden>Thema</p>
+    <h1 id="topic-title">Mein Zeitstrahl</h1>
+    <p class="task" id="task-text" hidden></p>
+    <p class="topic-hint" id="topic-hint" hidden></p>
     <ol class="steps">
-      <li>Ereignis eintragen</li>
-      <li>Zur Liste hinzufügen</li>
-      <li id="step-3">Datei speichern und bei der Lehrkraft abgeben, z. B. über IServ</li>
+      <li>Ereignisse eintragen</li>
+      <li id="step-2">Zwischendurch speichern</li>
+      <li id="step-3">Fertig? Abgeben</li>
     </ol>
+  </section>
+
+  <section class="card" aria-labelledby="group-title">
+    <h2 id="group-title" class="vh">Angaben zum Zeitstrahl</h2>
+    <div class="row3">
+      <div class="field">
+        <label for="f-von">Erstellt von <span class="req" aria-hidden="true">*</span></label>
+        <input id="f-von" type="text" maxlength="120" autocomplete="off" placeholder="z. B. Lena und Tom" aria-describedby="f-von-note">
+        <span class="note" id="f-von-note">Nur Vornamen angeben.</span>
+      </div>
+      <div class="field">
+        <label for="f-titel">Titel eures Zeitstrahls</label>
+        <input id="f-titel" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Luthers Weg">
+      </div>
+      <div class="field" id="thema-field">
+        <label for="f-thema">Thema</label>
+        <input id="f-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="preview-title">
+    <h2 id="preview-title">Euer Zeitstrahl</h2>
+    <p class="empty-list" id="preview-empty">Noch leer. Tragt unten das erste Ereignis ein.</p>
+    <div class="preview" id="preview" hidden></div>
+    <p class="note" id="preview-note" hidden>Tippt auf ein Ereignis, um es zu bearbeiten.</p>
   </section>
 
   <div class="student-grid">
     <form class="card" id="entry-form" novalidate>
       <h2 id="form-title">Neues Ereignis</h2>
-
-      <div class="row2">
-        <div class="field">
-          <label for="f-thema">Thema</label>
-          <input id="f-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
-        </div>
-        <div class="field">
-          <label for="f-von">Erstellt von</label>
-          <input id="f-von" type="text" maxlength="120" autocomplete="off" placeholder="z. B. Lena und Tom" aria-describedby="f-von-note">
-          <span class="note" id="f-von-note">Nur Vornamen angeben.</span>
-        </div>
-      </div>
 
       <div class="field">
         <label for="f-datum">Datum <span class="req" aria-hidden="true">*</span></label>
@@ -55,8 +72,8 @@
       </div>
 
       <div class="field">
-        <label for="f-titel">Ereignis <span class="req" aria-hidden="true">*</span></label>
-        <input id="f-titel" type="text" maxlength="90" autocomplete="off" required placeholder="z. B. Westfälischer Friede">
+        <label for="f-ereignis">Ereignis <span class="req" aria-hidden="true">*</span></label>
+        <input id="f-ereignis" type="text" maxlength="90" autocomplete="off" required placeholder="z. B. Westfälischer Friede">
       </div>
 
       <div class="field">
@@ -97,23 +114,45 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn primary" id="f-submit">Zur Liste hinzufügen</button>
+        <button type="submit" class="btn primary" id="f-submit">Zum Zeitstrahl hinzufügen</button>
         <button type="button" class="btn ghost" id="f-cancel" hidden>Bearbeiten abbrechen</button>
         <span class="form-msg" id="form-msg" role="alert"></span>
       </div>
     </form>
 
     <aside class="card" aria-labelledby="list-title">
-      <h2 id="list-title">Deine Beiträge</h2>
-      <p class="sent" id="sent-msg" role="status" hidden></p>
-      <p class="empty-list" id="empty-list">Noch keine Beiträge. Fülle links das Formular aus.</p>
+      <h2 id="list-title">Ereignisse</h2>
+      <p class="empty-list" id="empty-list">Noch keine Ereignisse.</p>
       <ul class="entries" id="entries"></ul>
-      <div class="preview" id="preview" hidden></div>
-      <button type="button" class="btn primary" id="btn-save" disabled>Als Datei speichern</button>
-      <p class="save-note" id="save-note">Die Datei enthält alle Beiträge dieser Liste. Danach bei der Lehrkraft abgeben. Deine Angaben bleiben auf diesem Gerät, bis du sie abgibst.</p>
-      <button type="button" class="btn ghost danger" id="btn-clear" hidden>Liste leeren</button>
     </aside>
   </div>
+
+  <section class="card save-card" aria-labelledby="save-title">
+    <h2 id="save-title">Speichern und abgeben</h2>
+    <p class="status-line" id="save-status" role="status" aria-live="polite"></p>
+    <p class="submitted" id="submitted-msg" hidden>Abgegeben! Eure Lehrkraft kann euren Zeitstrahl jetzt zeigen. Ihr dürft ihn weiter verbessern und erneut abgeben.</p>
+    <div class="code-box" id="code-box" hidden>
+      <span class="code-label">Euer Code</span>
+      <span class="code-value" id="code-value"></span>
+      <span class="code-note">Bitte aufschreiben. Damit arbeitet ihr später weiter, auch auf einem anderen iPad.</span>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" id="btn-draft" hidden>Zwischenspeichern</button>
+      <button type="button" class="btn primary" id="btn-submit" hidden>Fertig – abgeben</button>
+      <button type="button" class="btn primary" id="btn-file">Als Datei speichern</button>
+    </div>
+
+    <form class="resume" id="resume" hidden>
+      <label for="code-input">Schon einmal gespeichert? Mit eurem Code weiterarbeiten:</label>
+      <div class="resume-row">
+        <input id="code-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="z. B. K7M2X">
+        <button type="submit" class="btn">Laden</button>
+      </div>
+      <span class="check" id="code-msg" aria-live="polite"></span>
+    </form>
+
+    <button type="button" class="btn ghost danger" id="btn-new">Neuen Zeitstrahl beginnen</button>
+  </section>
 
 </div>
 
