@@ -1,7 +1,9 @@
 /*
  * Zeitstrahl-Werkstatt · Beispiele
  * Werden beim ersten Start geladen und lassen sich über „Datei → Beispiele hinzufügen“
- * jederzeit wiederholen.
+ * jederzeit wiederholen. Beispiele mit „code“ öffnen Schülerinnen und Schüler auf der
+ * Schülerseite unter „Mit eurem Code weiterarbeiten“ als Vorlage für einen eigenen
+ * Zeitstrahl. Ein solcher Code enthält I, O, 0 oder 1, die der Server nie vergibt.
  */
 window.ZeitstrahlBeispiele = [
   {
@@ -85,6 +87,46 @@ um 529 | Kloster Montecassino | Religion | Benedikt von Nursia gründet sein Klo
 1962–1965 | Zweites Vatikanisches Konzil | Religion | Liturgie in der Landessprache, Öffnung zur Ökumene und zum Dialog mit anderen Religionen.
 31.10.1999 | Gemeinsame Erklärung zur Rechtfertigungslehre | Religion | Katholische Kirche und Lutherischer Weltbund erklären in Augsburg ihren Grundkonsens in der Rechtfertigungslehre.
 08.05.2025 | Wahl Papst Leos XIV. | Personen | Robert Francis Prevost wird als erster US-Amerikaner Papst. Seinen Namen wählt er auch mit Blick auf Leo XIII.
+`,
+  },
+  {
+    id: 'beispiel-weltkrieg',
+    name: 'Erster Weltkrieg (Beispiel)',
+    thema: 'Erster Weltkrieg',
+    code: 'KRIEG',
+    source: `# Datum | Titel | Kategorie | Beschreibung
+28.07.1914 – 11.11.1918 | Erster Weltkrieg | Epoche | Rund 17 Millionen Menschen sterben, etwa 10 Millionen Soldaten und 7 Millionen Zivilisten.
+28.06.1914 | Attentat von Sarajevo | Politik | Der bosnisch-serbische Student Gavrilo Princip erschießt den österreichisch-ungarischen Thronfolger Franz Ferdinand und dessen Frau Sophie.
+05.07.1914 | „Blankoscheck“ | Politik | Kaiser Wilhelm II. sichert Österreich-Ungarn die bedingungslose Unterstützung des Deutschen Reiches gegen Serbien zu.
+28.07.1914 | Kriegserklärung an Serbien | Politik | Österreich-Ungarn erklärt Serbien den Krieg. Über die Bündnisse weitet sich der Konflikt in wenigen Tagen zum Krieg der Großmächte aus.
+01.08.1914 | Kriegserklärung an Russland | Politik | Das Deutsche Reich erklärt Russland den Krieg, zwei Tage später auch Frankreich.
+04.08.1914 | Einmarsch in Belgien | Militär | Nach dem Schlieffen-Plan marschieren deutsche Truppen durch das neutrale Belgien Richtung Frankreich. Daraufhin erklärt Großbritannien dem Deutschen Reich den Krieg.
+04.08.1914 | Burgfrieden | Gesellschaft | Der Reichstag bewilligt die Kriegskredite, auch die SPD stimmt zu. Der Kaiser erklärt: „Ich kenne keine Parteien mehr, ich kenne nur Deutsche.“
+26.08.1914–30.08.1914 | Schlacht bei Tannenberg | Militär | Unter Hindenburg und Ludendorff schlagen deutsche Truppen in Ostpreußen eine russische Armee.
+05.09.1914–12.09.1914 | Schlacht an der Marne | Militär | Der deutsche Vormarsch auf Paris wird gestoppt. Im Westen erstarrt der Bewegungskrieg zum Stellungskrieg in Schützengräben.
+24.12.1914 | Weihnachtsfrieden | Gesellschaft | An manchen Abschnitten der Westfront schweigen die Waffen. Soldaten beider Seiten singen, tauschen Geschenke und begraben ihre Toten.
+22.04.1915 | Giftgas bei Ypern | Technik | Deutsche Truppen setzen in Flandern erstmals in großem Umfang Chlorgas ein. Bald verwenden alle Kriegsparteien Gas.
+24.04.1915 | Beginn des Völkermords an den Armeniern | Gesellschaft | Im Osmanischen Reich, einem Verbündeten Deutschlands, werden Hunderttausende Armenierinnen und Armenier ermordet oder auf Todesmärsche geschickt.
+07.05.1915 | Versenkung der „Lusitania“ | Militär | Ein deutsches U-Boot versenkt den britischen Passagierdampfer. Fast 1200 Menschen sterben, darunter über 120 US-Amerikaner.
+23.05.1915 | Italien tritt in den Krieg ein | Politik | Italien erklärt Österreich-Ungarn den Krieg und kämpft nun aufseiten Frankreichs und Großbritanniens.
+21.02.1916–19.12.1916 | Schlacht um Verdun | Militär | Monatelang kämpfen deutsche und französische Truppen um die Festung. Rund 300.000 Soldaten sterben, ohne dass sich die Front wesentlich verschiebt.
+31.05.1916–01.06.1916 | Skagerrakschlacht | Militär | Die größte Seeschlacht des Krieges zwischen deutscher und britischer Flotte endet ohne Entscheidung.
+01.07.1916–18.11.1916 | Schlacht an der Somme | Militär | Über eine Million Soldaten werden getötet, verwundet oder gefangen genommen. Allein am ersten Tag sterben fast 20.000 britische Soldaten.
+15.09.1916 | Erste Panzer | Technik | Britische Truppen setzen an der Somme zum ersten Mal Panzer ein.
+1916–1917 | Steckrübenwinter | Gesellschaft | Die britische Seeblockade und eine schlechte Kartoffelernte führen in Deutschland zu Hunger. Viele Menschen leben fast nur von Steckrüben.
+01.02.1917 | Uneingeschränkter U-Boot-Krieg | Militär | Deutsche U-Boote greifen nun auch Handelsschiffe neutraler Staaten ohne Warnung an.
+März 1917 | Februarrevolution in Russland | Politik | Zar Nikolaus II. dankt ab. Nach dem damals in Russland gültigen Kalender war es noch Februar.
+06.04.1917 | Kriegseintritt der USA | Politik | Die USA erklären dem Deutschen Reich den Krieg. Ihre Soldaten und Rohstoffe stärken die Gegner Deutschlands entscheidend.
+07.11.1917 | Oktoberrevolution | Politik | Die Bolschewiki unter Lenin übernehmen in Russland die Macht und wollen den Krieg beenden.
+08.01.1918 | Vierzehn Punkte | Politik | US-Präsident Woodrow Wilson stellt ein Programm für einen Frieden vor, unter anderem mit dem Selbstbestimmungsrecht der Völker.
+03.03.1918 | Frieden von Brest-Litowsk | Politik | Sowjetrussland scheidet aus dem Krieg aus und muss große Gebiete abtreten.
+21.03.1918 | Deutsche Frühjahrsoffensive | Militär | Die Oberste Heeresleitung versucht im Westen eine Entscheidung zu erzwingen. Nach Anfangserfolgen scheitert der Angriff.
+08.08.1918 | „Schwarzer Tag des deutschen Heeres“ | Militär | Bei Amiens durchbrechen alliierte Truppen mit vielen Panzern die deutsche Front.
+29.09.1918 | Ludendorff fordert Waffenstillstand | Politik | Die Oberste Heeresleitung hält den Krieg für verloren und verlangt von der Regierung ein Waffenstillstandsangebot.
+03.11.1918 | Matrosenaufstand in Kiel | Gesellschaft | Matrosen widersetzen sich einem sinnlosen letzten Flottenangriff. Der Aufstand wird zum Beginn der Novemberrevolution.
+09.11.1918 | Abdankung des Kaisers | Politik | Reichskanzler Max von Baden verkündet die Abdankung Wilhelms II., Philipp Scheidemann ruft die Republik aus. Der Kaiser geht ins Exil in die Niederlande.
+11.11.1918 | Waffenstillstand von Compiègne | Politik | Um 11 Uhr schweigen an der Westfront die Waffen. Der Krieg ist zu Ende.
+28.06.1919 | Versailler Vertrag | Politik | Genau fünf Jahre nach dem Attentat von Sarajevo unterzeichnet Deutschland den Friedensvertrag. Er gibt Deutschland und seinen Verbündeten die Schuld am Krieg.
 `,
   },
 ];

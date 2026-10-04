@@ -465,6 +465,29 @@
 
   /* ---------- Weiterarbeiten mit Code, neu beginnen ---------- */
 
+  // Beispiel-Zeitstrahlen mit festem Code (js/beispiele.js) öffnen sich als Vorlage:
+  // ohne id und Code, beim Speichern bekommt die Gruppe einen eigenen Code.
+  function openSample(code) {
+    const s = (window.ZeitstrahlBeispiele || []).find((x) => x.code === code);
+    if (!s) return false;
+    const entries = s.source.split(/\r?\n/)
+      .filter((l) => l.trim() && !l.trim().startsWith('#'))
+      .map((l) => {
+        const [datum = '', titel = '', kategorie = '', beschreibung = ''] = l.split('|').map((x) => x.trim());
+        return { datum, titel, kategorie, beschreibung, bild: '', quelle: '' };
+      })
+      .filter((e) => e.datum && e.titel);
+    const keepNames = work.von;
+    work = Object.assign(emptyWork(), { thema: s.thema || '', titel: s.thema || s.name, von: keepNames, entries });
+    work.rev = 1;
+    saveLocal();
+    $('code-input').value = '';
+    $('code-msg').textContent = '';
+    renderAll();
+    toast(`Beispiel „${s.thema || s.name}“ geöffnet. Ihr könnt es verändern und als euren Zeitstrahl speichern.`);
+    return true;
+  }
+
   let replaceArmed = 0;
   async function loadCode(ev) {
     ev.preventDefault();
@@ -483,6 +506,7 @@
     }
     clearTimeout(replaceArmed);
     replaceArmed = 0;
+    if (openSample(code)) return;
     try {
       const res = await fetch('api/abgaben/code/' + encodeURIComponent(code), { cache: 'no-store' });
       const d = await res.json().catch(() => ({}));

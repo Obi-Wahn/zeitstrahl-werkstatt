@@ -145,4 +145,6 @@ Mögliche Anknüpfungspunkte im Unterricht:
 
 ## Beispiele
 
-Beim ersten Start sind drei Beispiele geladen: Reformation und Konfessionalisierung, Weimarer Republik sowie Kirchengeschichte im Überblick (mit Daten vor Christus). Über **Datei → Beispiele hinzufügen** lassen sie sich jederzeit wieder einfügen.
+Beim ersten Start sind vier Beispiele geladen: Reformation und Konfessionalisierung, Erster Weltkrieg, Weimarer Republik sowie Kirchengeschichte im Überblick (mit Daten vor Christus). Über **Datei → Beispiele hinzufügen** lassen sie sich jederzeit wieder einfügen.
+
+Das Beispiel zum Ersten Weltkrieg können auch die Schülerinnen und Schüler öffnen: Auf der Schülerseite unter „Mit eurem Code weiterarbeiten“ den Code **`KRIEG`** eingeben. Der Zeitstrahl erscheint dann als Vorlage. Die Gruppe kann ihn verändern, ergänzen und beim Speichern einen eigenen Code bekommen, das Beispiel selbst bleibt unverändert. Weitere Beispiele bekommen in `js/beispiele.js` einen eigenen `code`. Er hat fünf Zeichen und enthält I, O, 0 oder 1, damit er nie mit einem Code einer Gruppe zusammenfällt.
