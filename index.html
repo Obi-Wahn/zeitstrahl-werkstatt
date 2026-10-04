@@ -64,7 +64,11 @@
 
     <div class="stage-box">
       <div id="stage" class="stage" tabindex="0" aria-label="Zeitstrahl-Ansicht" aria-describedby="stage-hint"></div>
-      <p id="empty" class="empty" hidden>Noch keine Einträge. Schreib unten im Editor die erste Zeile, zum Beispiel <code>1517 | Thesenanschlag | Religion</code></p>
+      <div id="empty" class="empty" hidden>
+        <p class="empty-title">Noch keine Einträge</p>
+        <p class="empty-text">Schreib unten im Editor die erste Zeile, zum Beispiel:</p>
+        <code class="empty-example">1517 | Thesenanschlag | Religion</code>
+      </div>
       <aside id="detail" class="detail" hidden>
         <button type="button" class="detail-close" id="detail-close" aria-label="Details schließen">×</button>
         <p class="detail-cat"><span class="swatch" id="detail-swatch"></span><span id="detail-cat"></span></p>

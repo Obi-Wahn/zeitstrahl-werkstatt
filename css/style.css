@@ -344,6 +344,21 @@ textarea:focus-visible,
   color: var(--ink-soft);
   pointer-events: none;
 }
+.empty p { margin: 0; }
+.empty-title {
+  font-family: var(--f-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.empty-text { margin-top: 8px !important; line-height: 1.45; }
+.empty .empty-example {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 15px;
+  color: var(--ink);
+}
 
 .detail {
   position: absolute;
