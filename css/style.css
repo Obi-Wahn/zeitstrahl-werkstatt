@@ -143,7 +143,7 @@ body {
   font-size: 23px;
   white-space: nowrap;
 }
-.picker { flex: 0 1 380px; min-width: 0; }
+.picker { flex: 1 1 200px; max-width: 380px; min-width: 0; }
 .picker select {
   font: inherit;
   font-weight: 700;
@@ -926,3 +926,72 @@ body.present .detail-img { max-height: 46vh; }
   .ab { grid-template-columns: minmax(0, 1fr) auto; }
   .ab-status { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* ---------- Kopfleiste: Klasse, Titelzeile, Gruppenliste ---------- */
+
+/* „iPads verbinden“ und „Schüler-Zeitstrahlen“ gehören zusammen */
+.klasse { display: inline-flex; }
+.klasse[hidden] { display: none; }
+.klasse .btn:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.klasse .btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; margin-left: -1px; }
+.count {
+  display: inline-block;
+  min-width: 2.1ch;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-align: center;
+  background: var(--board);
+  color: var(--board-ink);
+  font-variant-numeric: tabular-nums;
+}
+.count[hidden] { display: none; }
+.status { white-space: nowrap; }
+.status[hidden] { display: none; }
+@media (max-width: 1180px) {
+  .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  /* Vom Speicherstand bleibt nur der Punkt, der Text steht im Tooltip */
+  .status:not([data-tone="warn"]) { font-size: 0; }
+  .status:not([data-tone="warn"])::before { margin-right: 0; }
+}
+
+.tl-title { flex: 1 1 260px; min-width: 0; display: grid; gap: 2px; }
+.tl-title .tl-heading { flex: none; }
+.tl-sub { margin: 0; font-size: 15px; color: var(--ink-soft); }
+body.present .tl-title { flex-basis: 420px; }
+body.present .tl-sub { font-size: clamp(16px, 1.4vw, 21px); }
+
+.klasse-panel h2 { margin-top: -6px; }
+.klasse-panel .eyebrow { margin: 0; }
+.kp-auftrag {
+  padding: 8px 10px;
+  border-left: 3px solid var(--board);
+  background: var(--wash);
+  border-radius: 0 6px 6px 0;
+  color: var(--ink) !important;
+}
+.kp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kp-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.kp-item:hover { background: var(--wash); }
+.kp-item[aria-current="true"] { border-color: var(--board); box-shadow: inset 3px 0 0 var(--board); background: var(--wash); cursor: default; }
+.kp-item:focus-visible { outline: 2px solid var(--board); outline-offset: 2px; }
+.kp-text { display: grid; gap: 1px; min-width: 0; }
+.kp-text strong { overflow-wrap: anywhere; }
+.kp-text span { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.klasse-panel .note { font-size: 13px; }
+.theme-icon span { font-size: 17px; }
