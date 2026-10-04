@@ -176,4 +176,27 @@ test('Spuren verhindern Überlappungen', () => {
   assert.equal(lanes.size, 3);
 });
 
+console.log('\nTabellen (.csv)');
+
+test('Excel mit Semikolon und Kopfzeile', () => {
+  const csv = 'Datum;Ereignis;Kategorie;Beschreibung\r\n1517;Thesenanschlag;Religion;Luther in Wittenberg\r\n1618–1648;Dreißigjähriger Krieg;Politik;\r\n';
+  assert.equal(P.tableToSource(csv), '1517 | Thesenanschlag | Religion | Luther in Wittenberg\n1618–1648 | Dreißigjähriger Krieg | Politik\n');
+});
+
+test('Komma, Anführungszeichen und ohne Kopfzeile', () => {
+  const csv = '1521,"Reichstag zu Worms",Politik,"Luther widerruft nicht, sagt ""Hier stehe ich"""\n';
+  assert.equal(P.tableToSource(csv), '1521 | Reichstag zu Worms | Politik | Luther widerruft nicht, sagt "Hier stehe ich"\n');
+});
+
+test('Spalten in anderer Reihenfolge, Senkrechtstrich wird ersetzt', () => {
+  const csv = 'Titel\tJahr\tNotiz\nAugsburger Religionsfriede\t1555\tcuius regio | eius religio\n';
+  assert.equal(P.tableToSource(csv), '1555 | Augsburger Religionsfriede | Allgemein | cuius regio / eius religio\n');
+});
+
+test('Zeilenumbruch in einer Zelle und leere Zeilen', () => {
+  const csv = 'Datum;Titel\n;\n1530;"Confessio\nAugustana"\n\n';
+  assert.equal(P.tableToSource(csv), '1530 | Confessio Augustana | Allgemein\n');
+  assert.equal(P.parseSource(P.tableToSource(csv), NOW).items.length, 1);
+});
+
 console.log(`\n${passed} Tests bestanden.`);

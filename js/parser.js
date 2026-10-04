@@ -331,9 +331,74 @@
     return line;
   }
 
+  /* ---------- Tabellen (.csv) aus Excel, Numbers oder LibreOffice ---------- */
+
+  // Zerlegt CSV-Text in Zeilen und Zellen. Anführungszeichen schützen Trennzeichen
+  // und Zeilenumbrüche, "" steht für ein einzelnes Anführungszeichen.
+  function splitCsv(text, sep) {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') quoted = false;
+        else cell += c;
+      } else if (c === '"' && cell.trim() === '') { quoted = true; cell = ''; }
+      else if (c === sep) { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += c;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  // Deutsches Excel trennt mit Semikolon, andere Programme mit Komma oder Tabulator
+  function guessSeparator(text) {
+    const first = text.split(/\r?\n/).find((l) => l.trim()) || '';
+    const count = (ch) => first.replace(/"[^"]*"/g, '').split(ch).length - 1;
+    return [';', '\t', ','].reduce((best, ch) => (count(ch) > count(best) ? ch : best), ';');
+  }
+
+  const HEADS = {
+    datum: /^(datum|jahr|zeit|zeitraum|wann)/i,
+    titel: /^(titel|ereignis|was|name)/i,
+    kategorie: /^(kategorie|bereich|art)/i,
+    beschreibung: /^(beschreibung|text|erkl|notiz|info|details)/i,
+  };
+
+  // Tabelle → Zeilen im Format „Datum | Titel | Kategorie | Beschreibung“.
+  // Eine Kopfzeile wird erkannt, wenn in ihrer ersten Zelle keine Ziffer steht;
+  // dann zählen die Spaltennamen, sonst gilt die Reihenfolge Datum, Titel, Kategorie, Beschreibung.
+  function tableToSource(text) {
+    const rows = splitCsv(text.replace(/^\uFEFF/, ''), guessSeparator(text))
+      .map((r) => r.map((c) => c.trim()))
+      .filter((r) => r.some(Boolean));
+    const cols = { datum: 0, titel: 1, kategorie: 2, beschreibung: 3 };
+    if (rows.length && !/\d/.test(rows[0][0] || '')) {
+      const head = rows.shift();
+      const found = {};
+      head.forEach((h, i) => {
+        for (const k of Object.keys(HEADS)) if (found[k] === undefined && HEADS[k].test(h)) found[k] = i;
+      });
+      if (found.datum !== undefined) {
+        for (const k of Object.keys(cols)) cols[k] = found[k] === undefined ? -1 : found[k];
+      }
+    }
+    const cell = (r, k) => (cols[k] >= 0 ? r[cols[k]] || '' : '');
+    return rows
+      .map((r) => buildLine({ datum: cell(r, 'datum'), titel: cell(r, 'titel'), kategorie: cell(r, 'kategorie'), beschreibung: cell(r, 'beschreibung') }))
+      .join('\n') + '\n';
+  }
+
   return {
     parseSource,
     buildLine,
+    tableToSource,
     cleanField,
     parseDate,
     parseDateField,

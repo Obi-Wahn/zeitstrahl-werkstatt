@@ -13,7 +13,8 @@
  * Ablauf: Die Lehrkraft gibt ein Thema vor (daten/aufgabe.json). Schülerinnen
  * und Schüler bauen dazu auf dem iPad je einen eigenen Zeitstrahl und speichern
  * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
- * Die Zeitstrahlen der Lehrkraft liegen zusätzlich in daten/sicherung.json.
+ * Die Zeitstrahlen der Lehrkraft liegen zusätzlich in daten/sicherung.json,
+ * dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -32,6 +33,8 @@ const ABGABEN = path.join(DATA, 'abgaben');
 const ARCHIVE = path.join(DATA, 'archiv');
 const TASK = path.join(DATA, 'aufgabe.json');
 const BACKUP = path.join(DATA, 'sicherung.json');
+const BACKUP_DAYS = path.join(DATA, 'sicherungen');
+const KEEP_DAYS = 14;                    // so viele Tagessicherungen bleiben liegen
 const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt');
 
 const args = process.argv.slice(2);
@@ -380,10 +383,36 @@ async function saveBackup(req, res) {
     return sendJson(res, 400, { fehler: 'Ungültige Sicherung.' });
   }
   await fsp.mkdir(DATA, { recursive: true });
-  const tmp = BACKUP + '.tmp';
-  await fsp.writeFile(tmp, text);
-  await fsp.rename(tmp, BACKUP);
+  await keepDailyCopy();
+  await writeAtomic(BACKUP, text);
   sendJson(res, 200, { ok: true });
+}
+
+// Lokales Datum als 2026-10-04
+function dayName(d) {
+  const z = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
+
+// Vor der ersten Änderung eines Tages wird der bisherige Stand als Tageskopie
+// abgelegt. So lässt sich ein versehentlich gelöschter Zeitstrahl noch am selben
+// Tag aus der Kopie zurückholen (Datei → Öffnen).
+async function keepDailyCopy() {
+  const target = path.join(BACKUP_DAYS, dayName(new Date()) + '.json');
+  try {
+    await fsp.access(target);
+    return; // heute schon gesichert
+  } catch (e) { /* noch keine Kopie von heute */ }
+  try {
+    await fsp.mkdir(BACKUP_DAYS, { recursive: true });
+    await fsp.copyFile(BACKUP, target);
+  } catch (e) {
+    return; // noch keine Sicherung vorhanden
+  }
+  try {
+    const old = (await fsp.readdir(BACKUP_DAYS)).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).sort().reverse().slice(KEEP_DAYS);
+    for (const f of old) await fsp.unlink(path.join(BACKUP_DAYS, f));
+  } catch (e) { /* Aufräumen klappt beim nächsten Mal */ }
 }
 
 async function loadBackup(res) {

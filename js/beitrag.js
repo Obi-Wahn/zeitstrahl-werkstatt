@@ -324,6 +324,7 @@
     $('btn-draft').hidden = !serverMode;
     $('btn-submit').hidden = !serverMode;
     $('btn-file').hidden = serverMode;
+    $('btn-open').hidden = serverMode;
     for (const id of ['btn-draft', 'btn-submit', 'btn-file']) $(id).disabled = !n || busy;
     $('btn-submit').textContent = work.status === 'abgegeben' ? 'Erneut abgeben' : 'Fertig – abgeben';
     $('resume').hidden = !serverMode;
@@ -416,6 +417,50 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     toast(`„${name}“ gespeichert. Jetzt bei der Lehrkraft abgeben.`);
+  }
+
+  // Ohne Server: eine gespeicherte Datei wieder öffnen und weiterarbeiten
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
+  const validImage = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
+
+  let openArmed = 0;
+  function disarmOpen() {
+    clearTimeout(openArmed);
+    openArmed = 0;
+    $('btn-open').textContent = 'Datei öffnen und weiterarbeiten';
+    $('btn-open').classList.remove('armed');
+  }
+  function chooseFile() {
+    if (work.entries.length && !openArmed) {
+      $('btn-open').textContent = 'Der Zeitstrahl hier wird ersetzt. Noch einmal tippen.';
+      $('btn-open').classList.add('armed');
+      openArmed = setTimeout(disarmOpen, 6000);
+      return;
+    }
+    disarmOpen();
+    $('open-input').click();
+  }
+
+  async function openFile(file) {
+    let d = null;
+    try { d = JSON.parse((await file.text()).replace(/^\uFEFF/, '')); } catch (e) { /* unten gemeldet */ }
+    if (!d || d.typ !== 'zeitstrahl-schueler' || !Array.isArray(d.eintraege)) {
+      toast(`„${file.name}“ ist keine gespeicherte Zeitstrahl-Datei.`);
+      return;
+    }
+    const entries = d.eintraege
+      .filter((e) => e && typeof e.datum === 'string' && typeof e.titel === 'string')
+      .map((e) => {
+        const bild = validImage(e.bild) ? e.bild : '';
+        return {
+          datum: str(e.datum, 80), titel: str(e.titel, 200), kategorie: str(e.kategorie, 60),
+          beschreibung: str(e.beschreibung, 600), bild, quelle: bild ? str(e.bildquelle, 300) : '',
+        };
+      });
+    work = Object.assign(emptyWork(), { thema: str(d.thema, 140), titel: str(d.titel, 140), von: str(d.von, 120), entries });
+    saveLocal();
+    renderAll();
+    toast(`„${work.titel || work.thema || file.name}“ geöffnet. Viel Erfolg beim Weiterarbeiten!`);
   }
 
   /* ---------- Weiterarbeiten mit Code, neu beginnen ---------- */
@@ -559,6 +604,11 @@
   $('btn-draft').addEventListener('click', () => saveToServer('entwurf'));
   $('btn-submit').addEventListener('click', () => saveToServer('abgegeben'));
   $('btn-file').addEventListener('click', saveFile);
+  $('btn-open').addEventListener('click', chooseFile);
+  $('open-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) openFile(file).finally(() => { e.target.value = ''; });
+  });
   $('resume').addEventListener('submit', loadCode);
   $('btn-new').addEventListener('click', startNew);
   window.addEventListener('pagehide', saveLocal);

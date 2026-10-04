@@ -50,9 +50,18 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 
 ## Ohne Server
 
-`index.html` funktioniert auch per Doppelklick, ganz ohne Server, z. B. zum Vorbereiten zu Hause. Dann fehlen nur „iPads verbinden“ und die Schüler-Zeitstrahlen. Auch die Schülerseite `beitrag.html` läuft per Doppelklick: Dort tragen die Schüler das Thema selbst ein und speichern ihren Zeitstrahl als Datei. Die Lehrkraft liest sie über **Datei → Öffnen** ein.
+`index.html` funktioniert auch per Doppelklick, ganz ohne Server, z. B. zum Vorbereiten zu Hause. Dann fehlen nur „iPads verbinden“ und die Schüler-Zeitstrahlen. Auch die Schülerseite `beitrag.html` läuft per Doppelklick: Dort tragen die Schüler das Thema selbst ein und speichern ihren Zeitstrahl als Datei. Mit **Datei öffnen und weiterarbeiten** machen sie in der nächsten Stunde dort weiter. Die Lehrkraft liest die Datei über **Datei → Öffnen** ein.
 
 **Wichtig:** Der Browser speichert die Zeitstrahlen getrennt nach Adresse. Was unter `http://localhost:8080` angelegt wurde, erscheint nicht beim Doppelklick auf `index.html` und umgekehrt. Zum Übertragen **Datei → Alle Zeitstrahlen sichern** und auf der anderen Seite **Datei → Öffnen** verwenden.
+
+## Sichern, weitergeben, einlesen
+
+- **Mit Server** liegt alles zusätzlich in `daten/sicherung.json`. Vor der ersten Änderung eines Tages legt der Server den bisherigen Stand als Tageskopie in `daten/sicherungen/` ab (z. B. `2026-10-04.json`), die letzten 14 bleiben liegen. Ein versehentlich gelöschter Zeitstrahl lässt sich so über **Datei → Öffnen** aus der Kopie zurückholen.
+- **Ohne Server** liegt alles nur im Browser. Die Werkstatt bittet den Browser, die Daten dauerhaft zu behalten. Gab es seit sieben Tagen Änderungen ohne Sicherung als Datei, erscheint oben **Jetzt sichern**.
+- **Alle Zeitstrahlen sichern** speichert eine .json-Datei mit allen Zeitstrahlen und Bildern. Beim Öffnen einer solchen Sicherung fragt die Werkstatt: **Hinzufügen** legt nur fehlende Zeitstrahlen an, **Ersetzen** stellt genau den Stand der Sicherung her.
+- **Mit Bildern sichern** speichert nur den gerade gezeigten Zeitstrahl, zum Weitergeben an Kolleginnen und Kollegen.
+- **Tabellen** aus Excel, Numbers oder LibreOffice lassen sich als .csv öffnen. Eine Zeile pro Ereignis, die Spalten Datum, Titel, Kategorie und Beschreibung. Mit Kopfzeile dürfen die Spalten in beliebiger Reihenfolge stehen.
+- Öffnet man denselben Zeitstrahl ein zweites Mal, wird er nicht doppelt angelegt.
 
 ## Funktionen
 
@@ -65,7 +74,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
 | Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
 | Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
-| Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich in `daten/sicherung.json`. |
+| Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich in `daten/sicherung.json` mit Tageskopien. Einlesen von .txt, .json und .csv. |
 
 ## Schreibweise der Einträge
 
@@ -99,6 +108,7 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
   - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei
   - `archiv/`: gelöschte Abgaben
   - `sicherung.json`: die Zeitstrahlen der Lehrkraft
+  - `sicherungen/`: je Tag eine Kopie davon, die letzten 14
 
   Nach Abschluss einer Unterrichtseinheit können `abgaben/` und `archiv/` gelöscht werden.
 - **Nur Vornamen:** Die Schülerseite fragt ausschließlich nach Vornamen.
@@ -115,7 +125,7 @@ index.html           Lehrkraft-Ansicht
 beitrag.html         Schülerseite
 css/                 Gestaltung, lokale Schriften
 fonts/               Alegreya, Atkinson Hyperlegible, IBM Plex Mono (SIL Open Font License)
-js/parser.js         Text → Einträge: Datumsformate, v. Chr., Zeiträume, Kategorien
+js/parser.js         Text → Einträge: Datumsformate, v. Chr., Zeiträume, Kategorien, Tabellen (.csv)
 js/layout.js         Einträge → Positionen: Skala, Spuren gegen Überlappung, SVG
 js/bild.js           Bilder im Browser verkleinern (höchstens 1000 px)
 js/app.js            Lehrkraft-Ansicht

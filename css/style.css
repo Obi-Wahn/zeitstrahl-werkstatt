@@ -167,6 +167,7 @@ body {
   max-width: 42ch;
 }
 .status[data-tone="warn"] { color: var(--warn); }
+.linkbtn.backup-due { margin-top: 0; white-space: nowrap; }
 .status[data-tone="pending"]::before,
 .status[data-tone="ok"]::before {
   content: "";
@@ -649,6 +650,9 @@ body.present .detail-img { max-height: 46vh; }
 .rv-desc { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 .rv-warn { font-size: 13px; color: var(--warn); }
 .rv-from { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.review.ask { width: min(540px, calc(100% - 32px)); }
+.review.ask .review-head { border-bottom: 0; padding-bottom: 14px; gap: 10px; }
+.review.ask .review-foot { border-top: 0; padding-top: 4px; }
 .review-foot {
   display: flex;
   justify-content: flex-end;
