@@ -21,7 +21,7 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
 5. **Zwischenspeichern:** Beim ersten **Zwischenspeichern** bekommt die Gruppe einen **Code** aus fünf Zeichen (z. B. `K7M2X`), den sie aufschreibt. Danach speichert die Seite alle 15 Sekunden automatisch. In der nächsten Stunde, auch auf einem anderen iPad, tippt die Gruppe den Code unter „Mit eurem Code weiterarbeiten“ ein und macht weiter.
 6. **Abgeben:** Ist der Zeitstrahl fertig, tippt die Gruppe auf **Fertig – abgeben**. Verbessern und erneut abgeben geht jederzeit.
-7. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen (5)** mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“.
+7. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen** die Abgaben mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“. Ist ein Schüler-Zeitstrahl ausgewählt, zeigt die rechte Spalte das Thema, den Arbeitsauftrag und alle Gruppen dazu, per Klick wechselt man zur nächsten Gruppe.
 8. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl.
 9. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
 10. **Beenden:** Das Server-Fenster schließen.
@@ -62,7 +62,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Kategorien | Farbig, per Klick ein- und ausblendbar. |
 | Details | Klick auf einen Eintrag zeigt Datum, „vor … Jahren“, Dauer, Beschreibung, Bild, Verfasser und Bildquelle. Bilder lassen sich dort auch selbst hinzufügen. |
 | Tafelbild | Vollbild für den Beamer, große Schrift. **Schrittweise aufdecken** blättert in zeitlicher Reihenfolge (Pfeiltasten, Leertaste oder Presenter). |
-| Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben). |
+| Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
 | Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
 | Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
 | Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich in `daten/sicherung.json`. |

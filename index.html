@@ -27,10 +27,12 @@
     </div>
     <div class="actions">
       <span id="save-status" class="status" role="status" aria-live="polite"></span>
-      <button type="button" class="btn connect-btn" hidden>iPads verbinden</button>
-      <button type="button" class="btn" id="btn-abgaben" hidden>Schüler-Zeitstrahlen</button>
+      <div class="klasse" id="klasse" role="group" aria-label="Klasse" hidden>
+        <button type="button" class="btn connect-btn">iPads verbinden</button>
+        <button type="button" class="btn" id="btn-abgaben">Schüler-Zeitstrahlen <span class="count" id="abgaben-count" hidden></span></button>
+      </div>
       <a class="btn ghost" href="beitrag.html" target="_blank" rel="noopener" id="link-student">Schülerseite</a>
-      <button type="button" class="btn ghost theme-btn" id="btn-theme">Farben: automatisch</button>
+      <button type="button" class="btn icon theme-btn theme-icon" id="btn-theme" aria-label="Farben: automatisch" title="Farben: automatisch"><span aria-hidden="true">◐</span></button>
       <div class="menu">
         <button type="button" id="btn-file" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu">Datei</button>
         <div id="file-menu" class="menu-list" role="menu" hidden>
@@ -53,7 +55,10 @@
 
   <section class="stage-wrap" id="stage-wrap" aria-labelledby="tl-heading">
     <div class="stage-head">
-      <h1 id="tl-heading" class="tl-heading"></h1>
+      <div class="tl-title">
+        <h1 id="tl-heading" class="tl-heading"></h1>
+        <p id="tl-sub" class="tl-sub" hidden></p>
+      </div>
       <div class="legend" id="legend" role="group" aria-label="Kategorien ein- und ausblenden"></div>
       <div class="zoom">
         <button type="button" class="btn icon" id="zoom-out" aria-label="Verkleinern" title="Verkleinern (−)">−</button>
@@ -131,7 +136,6 @@
 
       <div class="student-panel" id="student-panel" hidden>
         <p class="eyebrow">Schüler-Zeitstrahl</p>
-        <h2 id="sp-title"></h2>
         <p class="sp-meta" id="sp-meta"></p>
         <div class="manage">
           <button type="button" class="btn" id="sp-copy">In meine Zeitstrahlen kopieren</button>
@@ -141,7 +145,15 @@
       </div>
     </div>
 
-    <aside class="help" aria-labelledby="help-title">
+    <aside class="help klasse-panel" id="klasse-panel" aria-labelledby="kp-title" hidden>
+      <p class="eyebrow">Thema</p>
+      <h2 id="kp-title"></h2>
+      <p class="kp-auftrag" id="kp-auftrag" hidden></p>
+      <ul class="kp-list" id="kp-list"></ul>
+      <p class="note">Im Tafelbild blätterst du mit „Nächster Zeitstrahl“ oder Bild auf/ab am Presenter durch diese Gruppen.</p>
+    </aside>
+
+    <aside class="help" id="help" aria-labelledby="help-title">
       <h2 id="help-title">Schreibweise</h2>
       <p class="help-format"><code>Datum | Titel | Kategorie | Beschreibung</code></p>
       <dl class="help-list">
@@ -155,7 +167,7 @@
       </dl>
       <p>Feste Farben haben Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine Farbe.</p>
       <p>Schülerinnen und Schüler bauen über <strong>iPads verbinden</strong> eigene Zeitstrahlen zum vorgegebenen Thema. Abgaben erscheinen oben in der Auswahl unter „Schüler: Thema“. Ohne Server speichert die <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> eine Datei, die hier über <strong>Datei → Öffnen</strong> eingelesen wird.</p>
-      <p>Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.</p>
+      <p id="help-save">Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.</p>
       <p>Im Tafelbild blättern Pfeiltasten, Leertaste oder ein Presenter beim schrittweisen Aufdecken weiter. Ohne Aufdecken wechseln Bild auf/Bild ab (Presenter) zum nächsten Zeitstrahl.</p>
     </aside>
   </section>

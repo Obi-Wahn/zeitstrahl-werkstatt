@@ -165,12 +165,15 @@
   }
   function showStatus(pending) {
     const el = $('save-status');
+    // Schüler-Zeitstrahlen werden hier nicht bearbeitet, also auch nicht gespeichert
+    el.hidden = !!studentView;
     if (!storageOk) {
       el.textContent = 'Speichern im Browser klappt nicht. Bitte über „Datei“ sichern.';
       el.dataset.tone = 'warn';
       return;
     }
-    el.textContent = pending ? 'Wird gespeichert …' : 'In diesem Browser gespeichert';
+    el.textContent = pending ? 'Wird gespeichert …' : 'Gespeichert';
+    el.title = server.on ? 'In diesem Browser und auf dem Laptop im Ordner daten gespeichert' : 'In diesem Browser gespeichert';
     el.dataset.tone = pending ? 'pending' : 'ok';
   }
 
@@ -242,6 +245,7 @@
         renderPicker();
         renderAbgabenList();
         renderTlNav();
+        renderKlassePanel();
       }
       // Der gerade gezeigte Schüler-Zeitstrahl wurde verändert oder gelöscht
       if (studentView && !present) {
@@ -260,12 +264,16 @@
   }
 
   function renderServerUi() {
-    const b = $('btn-abgaben');
     const n = server.abgaben.length;
-    b.hidden = !server.on;
-    b.textContent = server.offline ? 'Server nicht erreichbar' : n ? `Schüler-Zeitstrahlen (${n})` : 'Schüler-Zeitstrahlen';
+    $('klasse').hidden = !server.on;
+    $('btn-abgaben').firstChild.textContent = server.offline ? 'Server nicht erreichbar ' : 'Schüler-Zeitstrahlen ';
+    $('abgaben-count').textContent = n;
+    $('abgaben-count').hidden = !n || server.offline;
     document.querySelectorAll('.connect-btn').forEach((c) => { c.hidden = !server.on; });
     $('link-student').hidden = server.on;
+    $('help-save').innerHTML = server.on
+      ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/sicherung.json</code> gespeichert. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
+      : 'Alles wird nur in diesem Browser gespeichert. Zum Weitergeben oder als Sicherung: <strong>Datei → Mit Bildern sichern</strong>.';
   }
 
   // Übersicht für die Lehrkraft, mit Code für den Fall, dass eine Gruppe ihn vergessen hat
@@ -354,16 +362,52 @@
     const sv = studentView;
     $('editor-own').hidden = !!sv;
     $('student-panel').hidden = !sv;
+    renderKlassePanel();
+    showStatus(!!saveTimer);
     if (!sv) return;
     const m = sv.meta;
-    $('sp-title').textContent = m.titel || m.thema;
     $('sp-meta').textContent = [
-      `von ${m.von}`,
-      `Thema: ${m.thema}`,
       `${m.anzahl} ${m.anzahl === 1 ? 'Ereignis' : 'Ereignisse'}`,
       `${m.status === 'abgegeben' ? 'abgegeben' : 'in Arbeit, gespeichert'} ${fmtWhen(m.aktualisiert)}`,
       `Code ${m.code}`,
     ].join(' · ');
+  }
+
+  // Rechte Spalte bei einem Schüler-Zeitstrahl: Thema, Arbeitsauftrag und alle Gruppen dazu
+  function renderKlassePanel() {
+    const sv = studentView;
+    $('help').hidden = !!sv;
+    $('klasse-panel').hidden = !sv;
+    if (!sv) return;
+    const thema = sv.meta.thema;
+    $('kp-title').textContent = thema;
+    const auftrag = server.task.thema === thema ? server.task.auftrag : '';
+    $('kp-auftrag').textContent = auftrag;
+    $('kp-auftrag').hidden = !auftrag;
+    const ul = $('kp-list');
+    ul.textContent = '';
+    for (const a of server.abgaben.filter((x) => x.thema === thema)) {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'kp-item';
+      const cur = a.id === sv.abgabeId;
+      if (cur) b.setAttribute('aria-current', 'true');
+      const text = document.createElement('span');
+      text.className = 'kp-text';
+      const t = document.createElement('strong');
+      t.textContent = a.titel || a.thema;
+      const m = document.createElement('span');
+      m.textContent = `${a.von} · ${a.anzahl} ${a.anzahl === 1 ? 'Ereignis' : 'Ereignisse'}`;
+      text.append(t, m);
+      const chip = document.createElement('span');
+      chip.className = 'ab-status' + (a.status === 'abgegeben' ? ' done' : '');
+      chip.textContent = a.status === 'abgegeben' ? 'abgegeben' : 'in Arbeit';
+      b.append(text, chip);
+      b.addEventListener('click', () => { if (!cur) switchTo('abgabe:' + a.id); });
+      li.append(b);
+      ul.append(li);
+    }
   }
 
   function copyStudentView() {
@@ -455,6 +499,7 @@
         body: JSON.stringify({ thema: $('task-thema').value.trim(), auftrag: $('task-auftrag').value.trim() }),
       });
       renderTaskState();
+      renderKlassePanel();
       toast(server.task.thema ? `Thema „${server.task.thema}“ festgelegt.` : 'Thema zurückgesetzt.');
     } catch (e) {
       toast(e.message);
@@ -712,7 +757,11 @@
   }
 
   function renderHeading() {
-    $('tl-heading').textContent = displayName(activeTl());
+    const sv = studentView;
+    // Bei Schüler-Zeitstrahlen stehen die Namen in einer eigenen Zeile unter dem Titel
+    $('tl-heading').textContent = sv ? sv.meta.titel || sv.meta.thema : displayName(activeTl());
+    $('tl-sub').textContent = sv ? `von ${sv.meta.von}${sv.meta.status === 'abgegeben' ? '' : ' · noch in Arbeit'}` : '';
+    $('tl-sub').hidden = !sv;
   }
 
   function refreshLists() {
@@ -1084,7 +1133,13 @@
     theme = THEMES[t] ? t : 'system';
     if (theme === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', theme);
-    document.querySelectorAll('.theme-btn').forEach((b) => { b.textContent = THEMES[theme]; });
+    document.querySelectorAll('.theme-btn').forEach((b) => {
+      // Der Knopf in der Kopfleiste zeigt nur ein Symbol, der Name steht im Tooltip
+      if (b.classList.contains('theme-icon')) {
+        b.setAttribute('aria-label', THEMES[theme]);
+        b.title = THEMES[theme] + ' (zum Umschalten klicken)';
+      } else b.textContent = THEMES[theme];
+    });
     if (save) { try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* egal */ } }
     requestRender();
   }
@@ -1457,7 +1512,7 @@
     renderTlNav();
     if (server.on) {
       renderServerUi();
-      loadTask();
+      loadTask().then(renderKlassePanel);
       pollAbgaben();
       setInterval(pollAbgaben, 5000);
       scheduleBackup();
