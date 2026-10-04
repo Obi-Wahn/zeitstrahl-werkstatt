@@ -1,0 +1,7 @@
+# Einstellungen für den Klassenserver der Zeitstrahl-Werkstatt
+# Nach einer Änderung das Server-Fenster schließen und neu starten.
+
+# Port, unter dem die Werkstatt erreichbar ist.
+# Üblich sind Werte ab 1024, z. B. 8080 oder 8090.
+# Die iPads öffnen dann z. B. 192.168.178.23:8080
+port = 8080

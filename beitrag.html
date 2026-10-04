@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beitrag zum Zeitstrahl</title>
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell student">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 34 22" aria-hidden="true">
+        <path d="M2 16h30" class="bm-axis"/>
+        <path d="M7 13v6M17 13v6M27 13v6" class="bm-tick"/>
+        <path d="M12 16V4" class="bm-pole"/>
+        <rect x="12" y="3" width="15" height="7" rx="1.5" class="bm-flag"/>
+        <circle cx="12" cy="16" r="2.6" class="bm-dot"/>
+      </svg>
+      <span class="brand-name">Zeitstrahl-Werkstatt</span>
+    </div>
+  </header>
+
+  <section class="student-intro">
+    <h1>Beitrag zum Zeitstrahl</h1>
+    <ol class="steps">
+      <li>Ereignis eintragen</li>
+      <li>Zur Liste hinzufügen</li>
+      <li id="step-3">Datei speichern und bei der Lehrkraft abgeben, z. B. über IServ</li>
+    </ol>
+  </section>
+
+  <div class="student-grid">
+    <form class="card" id="entry-form" novalidate>
+      <h2 id="form-title">Neues Ereignis</h2>
+
+      <div class="row2">
+        <div class="field">
+          <label for="f-thema">Thema</label>
+          <input id="f-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
+        </div>
+        <div class="field">
+          <label for="f-von">Erstellt von</label>
+          <input id="f-von" type="text" maxlength="120" autocomplete="off" placeholder="z. B. Lena und Tom" aria-describedby="f-von-note">
+          <span class="note" id="f-von-note">Nur Vornamen angeben.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-datum">Datum <span class="req" aria-hidden="true">*</span></label>
+        <input id="f-datum" type="text" maxlength="80" autocomplete="off" required aria-describedby="f-datum-check" placeholder="z. B. 1517, 31.10.1517, 44 v. Chr. oder 1618–1648">
+        <span class="check" id="f-datum-check" aria-live="polite"></span>
+      </div>
+
+      <div class="field">
+        <label for="f-titel">Ereignis <span class="req" aria-hidden="true">*</span></label>
+        <input id="f-titel" type="text" maxlength="90" autocomplete="off" required placeholder="z. B. Westfälischer Friede">
+      </div>
+
+      <div class="field">
+        <label for="f-kategorie">Kategorie</label>
+        <input id="f-kategorie" type="text" maxlength="40" autocomplete="off" list="kategorien" placeholder="z. B. Politik">
+        <datalist id="kategorien">
+          <option value="Politik"></option>
+          <option value="Religion"></option>
+          <option value="Kultur"></option>
+          <option value="Technik"></option>
+          <option value="Wirtschaft"></option>
+          <option value="Gesellschaft"></option>
+          <option value="Personen"></option>
+          <option value="Epoche"></option>
+        </datalist>
+      </div>
+
+      <div class="field">
+        <label for="f-text">Beschreibung</label>
+        <textarea id="f-text" maxlength="600" rows="5" placeholder="Was ist passiert? Warum ist es wichtig?"></textarea>
+        <span class="counter" id="f-text-count">0 / 600</span>
+      </div>
+
+      <div class="field">
+        <label for="f-bild">Bild</label>
+        <div class="img-pick">
+          <img id="f-bild-preview" class="img-preview" alt="Vorschau des gewählten Bildes" hidden>
+          <input id="f-bild" type="file" accept="image/*">
+          <button type="button" class="linkbtn danger" id="f-bild-del" hidden>Bild entfernen</button>
+        </div>
+        <span class="check" id="f-bild-check" aria-live="polite"></span>
+      </div>
+
+      <div class="field" id="quelle-field" hidden>
+        <label for="f-quelle">Bildquelle <span class="req" aria-hidden="true">*</span></label>
+        <input id="f-quelle" type="text" maxlength="300" autocomplete="off" placeholder="z. B. Wikimedia Commons, Schulbuch S. 112 oder selbst gezeichnet">
+        <span class="note">Bei fremden Bildern immer angeben, woher sie stammen.</span>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn primary" id="f-submit">Zur Liste hinzufügen</button>
+        <button type="button" class="btn ghost" id="f-cancel" hidden>Bearbeiten abbrechen</button>
+        <span class="form-msg" id="form-msg" role="alert"></span>
+      </div>
+    </form>
+
+    <aside class="card" aria-labelledby="list-title">
+      <h2 id="list-title">Deine Beiträge</h2>
+      <p class="sent" id="sent-msg" role="status" hidden></p>
+      <p class="empty-list" id="empty-list">Noch keine Beiträge. Fülle links das Formular aus.</p>
+      <ul class="entries" id="entries"></ul>
+      <div class="preview" id="preview" hidden></div>
+      <button type="button" class="btn primary" id="btn-save" disabled>Als Datei speichern</button>
+      <p class="save-note" id="save-note">Die Datei enthält alle Beiträge dieser Liste. Danach bei der Lehrkraft abgeben. Deine Angaben bleiben auf diesem Gerät, bis du sie abgibst.</p>
+      <button type="button" class="btn ghost danger" id="btn-clear" hidden>Liste leeren</button>
+    </aside>
+  </div>
+
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="js/parser.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/bild.js"></script>
+<script src="js/beitrag.js"></script>
+</body>
+</html>
