@@ -126,7 +126,21 @@
     const id = newId();
     return { activeId: id, timelines: [{ id, name: NEW_NAME, source: NEW_SOURCE, images: {} }] };
   }
-  async function loadState() {
+  // Frühere Versionen legten beim ersten Start alle Beispiele an. Liegen nur solche
+  // unveränderten Beispiele (oder leere neue Zeitstrahlen) vor, startet die Seite leer.
+  // Als unverändert gilt ein Beispiel mit gleichem Namen, ohne Bilder und mit denselben
+  // Einträgen (Datum und Titel). Ältere Schreibweisen mit „|“ oder geänderte Beschreibungen zählen nicht als Änderung.
+  const entryKeys = (src) => Parser.parseSource(src, NOW).items.map((i) => i.shortDate + ' ' + i.title).sort().join('\n');
+  function isPlainSample(t) {
+    if (Object.keys(t.images || {}).length) return false;
+    if (t.name === NEW_NAME && t.source.replace(/^#.*$/gm, '').trim() === '') return true;
+    const s = SAMPLES.find((x) => x.name === t.name);
+    return !!s && entryKeys(t.source) === entryKeys(s.source);
+  }
+  const onlySamples = (d) => d.timelines.every(isPlainSample);
+
+  // Liefert den gespeicherten Stand und ob er nur aus unveränderten Beispielen bestand
+  async function loadSaved() {
     try {
       const d = normalize(await dbGet(DB_KEY));
       if (d) return d;
@@ -144,7 +158,13 @@
         if (d) return d;
       } catch (e) { /* keine Sicherung */ }
     }
-    return freshState();
+    return null;
+  }
+  async function loadState() {
+    const d = await loadSaved();
+    if (!d) return { state: freshState(), cleared: false };
+    if (onlySamples(d)) return { state: freshState(), cleared: true };
+    return { state: d, cleared: false };
   }
 
   let storageOk = true;
@@ -1723,7 +1743,9 @@
     applyTheme(savedTheme, false);
 
     await detectServer();
-    state = await loadState();
+    const loaded = await loadState();
+    state = loaded.state;
+    if (loaded.cleared) persistNow(); // alte Beispiele auch im Browser und auf dem Server ersetzen
     reparse();
     loadEditor();
     renderPicker();
