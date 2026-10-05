@@ -1,0 +1,8 @@
+{
+  "name": "zeitstrahl-werkstatt",
+  "private": true,
+  "description": "Interaktive Zeitstrahlen für Geschichte und Religion mit Klassenserver",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

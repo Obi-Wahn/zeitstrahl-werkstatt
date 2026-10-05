@@ -2,7 +2,8 @@
 /*
  * Zeitstrahl-Werkstatt · Klassenserver
  *
- * Start:  node server.js        (oder Doppelklick auf „Server starten“)
+ * Start:  node server.js        (oder npm start, oder Doppelklick auf starten-windows.bat,
+ *                               starten-mac.command bzw. starten-linux.sh)
  *         node server.js 9000   (anderer Port, nur für diesen Start)
  *
  *   Lehrkraft:  http://localhost:8080          nur an diesem Laptop

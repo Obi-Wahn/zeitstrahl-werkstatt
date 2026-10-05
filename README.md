@@ -12,8 +12,17 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 ## Im Unterricht
 
 1. **Server starten:** Im Ordner doppelklicken auf
-   - Windows: `Server starten (Windows).bat`
-   - Mac: `Server starten (Mac).command` (beim ersten Mal: Rechtsklick → Öffnen)
+   - Windows: `starten-windows.bat`
+   - Mac: `starten-mac.command` (beim ersten Mal: Rechtsklick → Öffnen)
+   - Linux: `starten-linux.sh` (je nach Dateimanager „Als Programm ausführen“ wählen)
+
+   Oder in der Konsole (Eingabeaufforderung, Terminal) im Werkstatt-Ordner eintippen, das ist auf allen Systemen gleich:
+
+   ```
+   node server.js
+   ```
+
+   `npm start` funktioniert genauso.
 
    Es öffnet sich ein Fenster mit den Adressen, und der Browser zeigt die Lehrkraft-Ansicht unter `http://localhost:8080`. **Das Fenster während der Stunde offen lassen.**
 2. **Thema vorgeben:** Auf **iPads verbinden** klicken, das Thema eintragen (z. B. „Reformation“), auf Wunsch einen kurzen Arbeitsauftrag, und **Thema festlegen** klicken. Darunter erscheint ein großer QR-Code für den Beamer.
