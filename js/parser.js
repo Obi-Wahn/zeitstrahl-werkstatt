@@ -127,17 +127,96 @@
     return m ? [m[1], m[2]] : null;
   }
 
+  /* ---------- Jahrhunderte ---------- */
+
+  // „15. Jh.“, „15. Jahrhundert“, „frühes 16. Jh.“, „Mitte 16. Jh.“, „spätes 5. Jh. v. Chr.“
+  const RX_CENTURY = /^(?:(frühes|frühen|anfang des|anfang|beginn des|beginn|mitte des|mitte|mittleres|spätes|späten|ende des|ende)\s+)?(\d{1,2})\.?\s*(?:jh\.?|jhd\.?|jahrhundert)$/i;
+  // Nur die Zahl, als Anfang eines Bereichs: „14.–16. Jh.“
+  const RX_CENTURY_NR = /^(\d{1,2})\.?$/;
+
+  const CENTURY_PART = {
+    'frühes': 'früh', 'frühen': 'früh', 'anfang': 'früh', 'anfang des': 'früh', 'beginn': 'früh', 'beginn des': 'früh',
+    'mitte': 'mitte', 'mitte des': 'mitte', 'mittleres': 'mitte',
+    'spätes': 'spät', 'späten': 'spät', 'ende': 'spät', 'ende des': 'spät',
+  };
+  const PART_LABEL = { 'früh': 'frühes', mitte: 'Mitte des', 'spät': 'spätes' };
+
+  // Liefert { n, part, bc } oder null. part ist '', 'früh', 'mitte' oder 'spät'.
+  function parseCentury(raw) {
+    let s = String(raw).trim().replace(/\s+/g, ' ');
+    let bc = false;
+    let m;
+    if ((m = s.match(RX_BC))) {
+      bc = true;
+      s = s.slice(0, m.index).trim();
+    } else if ((m = s.match(RX_AD))) {
+      s = s.slice(0, m.index).trim();
+    }
+    const c = s.match(RX_CENTURY);
+    if (!c) return null;
+    const n = +c[2];
+    if (n < 1 || n > 99) return null;
+    return { n, part: c[1] ? CENTURY_PART[c[1].toLowerCase()] : '', bc };
+  }
+
+  // Jahre eines Jahrhunderts, bei „frühes“/„Mitte“/„spätes“ nur ein Drittel davon.
+  // 15. Jh. = 1401–1500 · 5. Jh. v. Chr. = 500–401 v. Chr.
+  function centuryYears(c) {
+    const from = c.part === 'mitte' ? 34 : c.part === 'spät' ? 67 : 1;
+    const to = c.part === 'früh' ? 33 : c.part === 'mitte' ? 66 : 100;
+    const base = (c.n - 1) * 100;
+    return c.bc
+      ? { y1: c.n * 100 - from + 1, y2: c.n * 100 - to + 1 } // rückwärts gezählt
+      : { y1: base + from, y2: base + to };
+  }
+
+  function centuryLabel(c, long) {
+    const part = c.part ? PART_LABEL[c.part] + ' ' : '';
+    return `${part}${c.n}. ${long ? 'Jahrhundert' : 'Jh.'}${c.bc ? ' v. Chr.' : ''}`;
+  }
+
+  // Ein Jahrhundert oder ein Bereich daraus wird zu einem Zeitraum (Balken).
+  function centuryField(raw) {
+    const s = String(raw).trim();
+    const range = splitRange(s);
+    let c1;
+    let c2;
+    if (range) {
+      c2 = parseCentury(range[1]);
+      if (!c2) return null;
+      const nr = range[0].trim().match(RX_CENTURY_NR);
+      c1 = nr ? { n: +nr[1], part: '', bc: c2.bc } : parseCentury(range[0]);
+      if (!c1) return null;
+      // „14.–16. Jh. v. Chr.“: Die Angabe am Ende gilt auch für den Anfang
+      if (c2.bc && !RX_AD.test(range[0].trim())) c1.bc = true;
+    } else {
+      c1 = parseCentury(s);
+      if (!c1) return null;
+      c2 = c1;
+    }
+    const a = { y: centuryYears(c1).y1, m: 0, d: 0, bc: c1.bc, approx: true, today: false };
+    const b = { y: centuryYears(c2).y2, m: 0, d: 0, bc: c2.bc, approx: true, today: false };
+    const start = toPos(a);
+    const end = toPos(b) + 1; // bis zum Ende des letzten Jahres
+    if (end < start) return { error: `Das Ende (${range[1].trim()}) liegt vor dem Anfang (${range[0].trim()}).` };
+    const label = c1 === c2 ? centuryLabel(c1) : `${c1.n}.–${centuryLabel(c2)}`;
+    const longLabel = c1 === c2 ? centuryLabel(c1, true) : `${c1.n}. bis ${centuryLabel(c2, true)}`;
+    return { kind: 'span', a, b, start, end, label, longLabel };
+  }
+
   function dateError(s) {
     const t = String(s).trim();
     if (/^(?:ca\.?\s*|um\s+)?-?0+(?:\s|$)/i.test(t)) {
       return 'Ein Jahr 0 gibt es nicht: Auf 1 v. Chr. folgt direkt 1 n. Chr.';
     }
-    return `Datum „${t}“ nicht erkannt. Möglich sind z. B. 1517, 31.10.1517, 9. November 1918, 44 v. Chr. oder 1618–1648.`;
+    return `Datum „${t}“ nicht erkannt. Möglich sind z. B. 1517, 31.10.1517, 9. November 1918, 44 v. Chr., 1618–1648 oder 15. Jh.`;
   }
 
   function parseDateField(raw, now) {
     const s = String(raw).trim();
     if (!s) return { error: 'Datum fehlt. Beispiel: 1517 | Thesenanschlag | Religion' };
+    const cent = centuryField(s);
+    if (cent) return cent;
     const range = splitRange(s);
     if (!range) {
       const a = parseDate(s, now);
@@ -319,6 +398,9 @@
       if (it.kind === 'point') {
         it.shortDate = fmtShort(it.a);
         it.longDate = fmtLong(it.a);
+      } else if (r.label) {
+        it.shortDate = r.label;
+        it.longDate = `${r.longLabel} (${fmtYear(it.a)}–${fmtYear(it.b)})`;
       } else {
         it.shortDate = fmtRangeShort(it.a, it.b);
         it.longDate = fmtLong(it.a) + ' bis ' + fmtLong(it.b);
@@ -419,6 +501,7 @@
     cleanField,
     parseDate,
     parseDateField,
+    parseCentury,
     toPos,
     fmtShort,
     fmtLong,

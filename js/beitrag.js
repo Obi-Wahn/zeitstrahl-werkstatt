@@ -28,14 +28,16 @@
   const val = (id) => $(id).value.trim();
 
   // Der eigene Zeitstrahl. id und code vergibt der Server beim ersten Speichern.
-  const emptyWork = () => ({ id: '', code: '', thema: '', titel: '', von: '', status: '', saved: '', rev: 0, savedRev: 0, entries: [] });
+  const emptyWork = () => ({ id: '', code: '', thema: '', titel: '', von: '', status: '', saved: '', rev: 0, savedRev: 0, rueckmeldung: '', entries: [] });
   let work = emptyWork();
-  let task = { thema: '', auftrag: '' };
+  let task = { thema: '', auftrag: '', gesperrt: false };
   let serverMode = false;
   let busy = false;
   let editIndex = -1;
   let bildData = '';
   let autoTimer = 0;
+  let pollTimer = 0;
+  let online = true;
   let localWarned = false;
 
   const dirty = () => work.rev !== work.savedRev;
@@ -122,7 +124,9 @@
   function dateInfo(text) {
     const r = Parser.parseDateField(text, NOW);
     if (r.error) return { ok: false, text: r.error };
-    const when = r.kind === 'point' ? Parser.fmtLong(r.a) : `${Parser.fmtLong(r.a)} bis ${Parser.fmtLong(r.b)}`;
+    const when = r.longLabel // Jahrhundert: „15. Jahrhundert“ statt „um 1401 bis um 1500“
+      ? r.longLabel
+      : r.kind === 'point' ? Parser.fmtLong(r.a) : `${Parser.fmtLong(r.a)} bis ${Parser.fmtLong(r.b)}`;
     return { ok: true, text: when, ago: Parser.agoText({ kind: r.kind, a: r.a, b: r.b }, NOW) };
   }
 
@@ -313,6 +317,63 @@
       + Layout.svgBody(g, PAINT, { selectedId: editIndex >= 0 ? 'L' + editIndex : null, interactive: true, todayPos: null }) + '</svg>';
   }
 
+  /* ---------- Verbindung zum Laptop ---------- */
+
+  // Fällt das WLAN aus, sagt die Seite Bescheid und speichert nach, sobald es wieder geht
+  function setOnline(on) {
+    if (on === online) return;
+    online = on;
+    $('offline-msg').hidden = on;
+    if (!on) {
+      toast('Keine Verbindung zum Laptop der Lehrkraft. Eure Eingaben bleiben auf dem iPad.');
+      return;
+    }
+    if (dirty() && work.id) {
+      saveToServer(work.status || 'entwurf', true).then((ok) => {
+        toast(ok ? 'Verbindung wieder da. Euer Zeitstrahl ist gespeichert.' : 'Verbindung wieder da.');
+      });
+    } else {
+      toast('Verbindung wieder da.');
+    }
+  }
+
+  function renderFeedback() {
+    const text = work.rueckmeldung || '';
+    $('feedback-text').textContent = text;
+    $('feedback-card').hidden = !text;
+  }
+
+  // Regelmäßig nachsehen: Ist der Laptop noch da, gibt es eine Rückmeldung,
+  // hat die Lehrkraft die Abgabe beendet?
+  async function pollServer() {
+    if (!serverMode) return;
+    try {
+      const t = await fetch('api/aufgabe', { cache: 'no-store' });
+      if (t.ok) {
+        const neu = await t.json();
+        const changed = neu.gesperrt !== task.gesperrt || neu.thema !== task.thema || neu.auftrag !== task.auftrag;
+        task = neu;
+        if (changed) { renderHead(); renderStatus(); }
+      }
+      if (work.code) {
+        const r = await fetch(`api/abgaben/code/${encodeURIComponent(work.code)}/stand`, { cache: 'no-store' });
+        if (r.ok) {
+          const d = await r.json();
+          if ((d.rueckmeldung || '') !== (work.rueckmeldung || '')) {
+            const neu = !!d.rueckmeldung && d.rueckmeldung !== work.rueckmeldung;
+            work.rueckmeldung = d.rueckmeldung || '';
+            saveLocal();
+            renderFeedback();
+            if (neu) toast('Eure Lehrkraft hat euch eine Rückmeldung geschrieben.');
+          }
+        }
+      }
+      setOnline(true);
+    } catch (e) {
+      setOnline(false);
+    }
+  }
+
   /* ---------- Speichern und abgeben ---------- */
 
   const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '');
@@ -344,7 +405,9 @@
     $('btn-submit').hidden = !serverMode;
     $('btn-file').hidden = serverMode;
     $('btn-open').hidden = serverMode;
-    for (const id of ['btn-draft', 'btn-submit', 'btn-file']) $(id).disabled = !n || busy;
+    const zu = serverMode && !!task.gesperrt;
+    $('locked-msg').hidden = !zu;
+    for (const id of ['btn-draft', 'btn-submit', 'btn-file']) $(id).disabled = !n || busy || (zu && id !== 'btn-file');
     $('btn-submit').textContent = work.status === 'abgegeben' ? 'Erneut abgeben' : 'Fertig – abgeben';
     $('resume').hidden = !serverMode;
     $('btn-new').hidden = !n && !work.code;
@@ -377,7 +440,14 @@
         }),
       });
       const d = await res.json().catch(() => ({}));
+      if (res.status === 423) {
+        task.gesperrt = true;
+        renderStatus();
+        if (!silent) toast(d.fehler);
+        return false;
+      }
       if (!res.ok) throw new Error(d.fehler || 'Speichern hat nicht geklappt. Bitte noch einmal versuchen.');
+      setOnline(true);
       const first = !work.code;
       Object.assign(work, { id: d.id, code: d.code, thema: d.thema, status: d.status, saved: d.aktualisiert, savedRev: rev });
       saveLocal();
@@ -388,9 +458,8 @@
       }
       return true;
     } catch (err) {
-      if (!silent) {
-        toast(err instanceof TypeError ? 'Keine Verbindung zum Laptop der Lehrkraft. Ist das iPad im richtigen WLAN?' : err.message);
-      }
+      if (err instanceof TypeError) setOnline(false);
+      else if (!silent) toast(err.message);
       return false;
     } finally {
       busy = false;
@@ -532,6 +601,7 @@
       if (!res.ok) throw new Error(d.fehler || 'Laden hat nicht geklappt.');
       work = Object.assign(emptyWork(), {
         id: d.id, code: d.code, thema: d.thema || '', titel: d.titel || '', von: d.von || '', status: d.status || 'entwurf', saved: d.aktualisiert,
+        rueckmeldung: d.rueckmeldung || '',
         entries: (d.eintraege || []).map((e) => ({
           datum: e.datum, titel: e.titel, kategorie: e.kategorie || '', beschreibung: e.beschreibung || '', bild: e.bild || '', quelle: e.bildquelle || '',
         })),
@@ -587,6 +657,7 @@
     fillGroup();
     resetForm();
     renderHead();
+    renderFeedback();
     renderList();
   }
 
@@ -679,5 +750,9 @@
     renderHead();
     renderStatus();
     scheduleAutosave();
+    if (on) {
+      pollTimer = setInterval(pollServer, 20000);
+      pollServer();
+    }
   });
 })();

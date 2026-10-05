@@ -24,6 +24,7 @@
   const FAM_SCREEN = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif';
   const FAM_EXPORT = 'Arial, Helvetica, sans-serif';
   const PRESENT_SCALE = 1.4;
+  const MIN_PRESENT_SCALE = 0.85; // so weit darf das Tafelbild schrumpfen, damit alles aufs Bild passt
   const MIN_SPAN = 0.25;
   const MAX_SPAN = 40000;
   const LIMIT_LO = -30000;
@@ -311,7 +312,7 @@
     return groups;
   }
 
-  const signature = (list) => JSON.stringify(list.map((a) => [a.id, a.titel, a.von, a.status, a.anzahl, a.aktualisiert]));
+  const signature = (list) => JSON.stringify(list.map((a) => [a.id, a.titel, a.von, a.status, a.anzahl, a.aktualisiert, a.rueckmeldung]));
 
   // Die Schüler-Zeitstrahlen der Klasse regelmäßig abfragen
   async function pollAbgaben() {
@@ -331,9 +332,11 @@
       server.ready = true;
       // Ein anderes Gerät hat die Zeitstrahlen geändert
       if (typeof d.stand === 'string' && server.stand && d.stand !== server.stand && !syncPending()) syncFromServer();
+      // Während jemand eine Rückmeldung tippt, bleibt die Liste stehen
+      const typing = document.activeElement && document.activeElement.closest('.ab-feedback');
       if (listChanged) {
         renderPicker();
-        renderAbgabenList();
+        if (!typing) renderAbgabenList();
         renderTlNav();
         renderKlassePanel();
       }
@@ -409,11 +412,60 @@
           $('abgaben').close();
           switchTo('abgabe:' + a.id);
         });
-        li.append(chip, text, btn);
+        const fb = document.createElement('button');
+        fb.type = 'button';
+        fb.className = 'btn ghost';
+        fb.textContent = a.rueckmeldung ? 'Rückmeldung ändern' : 'Rückmeldung';
+        const box = feedbackBox(a);
+        fb.addEventListener('click', () => {
+          box.hidden = !box.hidden;
+          if (!box.hidden) box.querySelector('textarea').focus();
+        });
+        li.append(chip, text, fb, btn, box);
         ul.append(li);
       }
       box.append(h, ul);
     }
+  }
+
+  // Kurze Rückmeldung an eine Gruppe. Sie steht auf dem iPad, sobald die Gruppe
+  // mit ihrem Code weiterarbeitet oder speichert.
+  function feedbackBox(a) {
+    const box = document.createElement('div');
+    box.className = 'ab-feedback';
+    box.hidden = !a.rueckmeldung;
+    const label = document.createElement('label');
+    label.textContent = `Rückmeldung an ${a.von}`;
+    const ta = document.createElement('textarea');
+    ta.rows = 2;
+    ta.maxLength = 1000;
+    ta.value = a.rueckmeldung || '';
+    ta.placeholder = 'z. B. Schöne Auswahl! Ergänzt noch ein Ereignis nach 1555.';
+    label.htmlFor = 'fb-' + a.id;
+    ta.id = 'fb-' + a.id;
+    const row = document.createElement('div');
+    row.className = 'ab-feedback-row';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn primary';
+    save.textContent = 'Speichern';
+    const state = document.createElement('span');
+    state.className = 'ab-meta';
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try {
+        await api('api/abgaben/' + a.id + '/rueckmeldung', { method: 'PUT', body: JSON.stringify({ rueckmeldung: ta.value.trim() }) });
+        a.rueckmeldung = ta.value.trim();
+        state.textContent = a.rueckmeldung ? 'Gespeichert. Die Gruppe sieht sie auf dem iPad.' : 'Rückmeldung entfernt.';
+      } catch (e) {
+        state.textContent = e.message;
+      } finally {
+        save.disabled = false;
+      }
+    });
+    row.append(save, state);
+    box.append(label, ta, row);
+    return box;
   }
 
   // Ein Schüler-Zeitstrahl wird für die Anzeige in dieselbe Form gebracht wie die eigenen
@@ -682,10 +734,28 @@
 
   function renderTaskState() {
     const t = server.task.thema;
-    $('task-state').textContent = t
+    const zu = !!server.task.gesperrt;
+    $('task-state').textContent = zu
+      ? 'Die Abgabe ist beendet. Die iPads können nichts mehr speichern.'
+      : t
       ? `Die iPads zeigen jetzt das Thema „${t}“.`
       : 'Noch kein Thema festgelegt. Ohne Thema wählen die Schüler selbst eins.';
     $('connect-thema').textContent = t || 'frei wählbar';
+    $('btn-sperre').textContent = zu ? 'Bearbeiten wieder erlauben' : 'Abgabe beenden';
+    $('sperre-note').hidden = !zu;
+    $('abgaben-sperre').hidden = !zu;
+  }
+
+  // Beim Präsentieren soll niemand mehr am eigenen Zeitstrahl ändern
+  async function toggleSperre() {
+    const zu = !server.task.gesperrt;
+    try {
+      server.task = await api('api/aufgabe', { method: 'PUT', body: JSON.stringify({ gesperrt: zu }) });
+      renderTaskState();
+      toast(zu ? 'Abgabe beendet. Die iPads können nichts mehr speichern.' : 'Die Klasse kann wieder weiterarbeiten.');
+    } catch (e) {
+      toast(e.message);
+    }
   }
 
   async function saveTask(ev) {
@@ -693,7 +763,11 @@
     try {
       server.task = await api('api/aufgabe', {
         method: 'PUT',
-        body: JSON.stringify({ thema: $('task-thema').value.trim(), auftrag: $('task-auftrag').value.trim() }),
+        body: JSON.stringify({
+          thema: $('task-thema').value.trim(),
+          auftrag: $('task-auftrag').value.trim(),
+          gesperrt: !!server.task.gesperrt,
+        }),
       });
       renderTaskState();
       renderKlassePanel();
@@ -724,6 +798,134 @@
     const dlg = $('connect');
     if (typeof dlg.showModal === 'function') dlg.showModal();
     else dlg.setAttribute('open', '');
+  }
+
+  /* ---------- Sortier-Übung „Was kam zuerst?“ ---------- */
+
+  // Die Ereignisse des gezeigten Zeitstrahls kommen gemischt an die Tafel, die Klasse
+  // bringt sie in die richtige Reihenfolge. Das Datum bleibt verdeckt, bis geprüft wird.
+  let sortCards = [];
+  let sortSolved = false;
+
+  function openSort() {
+    const items = revealOrder();
+    if (items.length < 3) {
+      toast('Für die Übung braucht der Zeitstrahl mindestens drei Ereignisse.');
+      return;
+    }
+    sortCards = shuffleCards(items.slice(0, 12));
+    sortSolved = false;
+    $('sort-result').textContent = '';
+    $('sort-result').dataset.tone = '';
+    renderSort();
+    const dlg = $('sort');
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else dlg.setAttribute('open', '');
+  }
+
+  // Mischen, aber nie in der richtigen Reihenfolge anfangen
+  function shuffleCards(items) {
+    const cards = items.map((it, i) => ({ it, pos: i }));
+    for (let n = 0; n < 20; n++) {
+      for (let i = cards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      if (cards.some((c, i) => c.pos !== i)) break;
+    }
+    return cards;
+  }
+
+  function renderSort() {
+    const ol = $('sort-list');
+    ol.textContent = '';
+    sortCards.forEach((c, i) => {
+      const li = document.createElement('li');
+      li.className = 'sort-card';
+      if (c.state) li.dataset.state = c.state;
+      li.draggable = true;
+      li.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', String(i));
+        li.classList.add('dragging');
+      });
+      li.addEventListener('dragend', () => li.classList.remove('dragging'));
+      li.addEventListener('dragover', (e) => e.preventDefault());
+      li.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData('text/plain'));
+        if (Number.isInteger(from)) moveCard(from, i);
+      });
+      const dot = document.createElement('span');
+      dot.className = 'swatch';
+      dot.style.background = `var(--cat-${c.it.ci})`;
+      const text = document.createElement('div');
+      text.className = 'sort-text';
+      const t = document.createElement('strong');
+      t.textContent = c.it.title;
+      const m = document.createElement('span');
+      m.className = 'ab-meta';
+      m.textContent = sortSolved ? `${c.it.shortDate} · ${c.it.cat}` : c.it.cat;
+      text.append(t, m);
+      const tools = document.createElement('div');
+      tools.className = 'sort-tools';
+      const up = document.createElement('button');
+      up.type = 'button';
+      up.className = 'btn icon';
+      up.textContent = '↑';
+      up.setAttribute('aria-label', `„${c.it.title}“ nach oben`);
+      up.disabled = i === 0;
+      up.addEventListener('click', () => moveCard(i, i - 1));
+      const down = document.createElement('button');
+      down.type = 'button';
+      down.className = 'btn icon';
+      down.textContent = '↓';
+      down.setAttribute('aria-label', `„${c.it.title}“ nach unten`);
+      down.disabled = i === sortCards.length - 1;
+      down.addEventListener('click', () => moveCard(i, i + 1));
+      tools.append(up, down);
+      li.append(dot, text, tools);
+      ol.append(li);
+    });
+  }
+
+  function moveCard(from, to) {
+    if (to < 0 || to >= sortCards.length || from === to) return;
+    const [card] = sortCards.splice(from, 1);
+    sortCards.splice(to, 0, card);
+    for (const c of sortCards) c.state = '';
+    $('sort-result').textContent = '';
+    $('sort-result').dataset.tone = '';
+    renderSort();
+    const items = [...$('sort-list').children];
+    const btn = items[to] && items[to].querySelector('.sort-tools button:not([disabled])');
+    if (btn) btn.focus();
+  }
+
+  function checkSort() {
+    // Gleich alte Ereignisse dürfen in beliebiger Reihenfolge stehen
+    const order = sortCards.map((c) => c.it.start);
+    let right = 0;
+    sortCards.forEach((c, i) => {
+      const okBefore = i === 0 || order[i - 1] <= c.it.start;
+      const okAfter = i === order.length - 1 || c.it.start <= order[i + 1];
+      c.state = okBefore && okAfter ? 'ok' : 'wrong';
+      if (c.state === 'ok') right++;
+    });
+    renderSort();
+    const all = right === sortCards.length;
+    $('sort-result').textContent = all
+      ? 'Alles richtig! Die Reihenfolge stimmt.'
+      : `${right} von ${sortCards.length} stehen an der richtigen Stelle. Die roten Karten passen noch nicht.`;
+    $('sort-result').dataset.tone = all ? 'ok' : 'warn';
+  }
+
+  function solveSort() {
+    sortCards.sort((a, b) => a.it.start - b.it.start || a.it.line - b.it.line);
+    for (const c of sortCards) c.state = 'ok';
+    sortSolved = true;
+    renderSort();
+    $('sort-result').textContent = 'So war es richtig. Mit „Neu mischen“ geht es noch einmal los.';
+    $('sort-result').dataset.tone = 'ok';
   }
 
   /* ---------- Zeitstrahlen nacheinander zeigen (Tafelbild) ---------- */
@@ -856,8 +1058,21 @@
     const isEmpty = parsed.items.length === 0;
     $('empty').hidden = !isEmpty;
     if (isEmpty) { stage.textContent = ''; return; } // ohne Einträge keine Achse, nur der Hinweis
-    const g = Layout.layout(shownItems(), view, W, { scale: present ? PRESENT_SCALE : 1, family: FAM_SCREEN, measure, blank: false });
-    const H = Math.max(Math.ceil(g.H), Math.floor(stage.clientHeight));
+    const items = shownItems();
+    const draw = (scale) => Layout.layout(items, view, W, { scale, family: FAM_SCREEN, measure, blank: false });
+    let g = draw(present ? PRESENT_SCALE : 1);
+    // Im Tafelbild gibt es keinen Platz zum Scrollen: Passt der Zeitstrahl nicht auf den
+    // Beamer (z. B. 1024 × 768), wird er so weit verkleinert, bis alles sichtbar ist.
+    const box = Math.floor(stage.clientHeight);
+    if (present && box > 100 && g.H > box) {
+      let scale = PRESENT_SCALE;
+      for (let i = 0; i < 4 && g.H > box; i++) {
+        scale = Math.max(MIN_PRESENT_SCALE, scale * (box / g.H));
+        g = draw(scale);
+        if (scale <= MIN_PRESENT_SCALE) break;
+      }
+    }
+    const H = Math.max(Math.ceil(g.H), box);
     const offY = Math.max(0, (H - g.H) / 2);
     const active = document.activeElement;
     const focusId = active && active !== stage && stage.contains(active) ? active.getAttribute('data-id') : null;
@@ -1347,6 +1562,88 @@
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
   }
 
+  // Direkt drucken: dasselbe Bild wie beim Sichern, nur gleich auf dem Papier.
+  // Querformat und Seitenrand kommen aus dem Druck-Stil in css/style.css.
+  // Druckseite im Format A4 quer (273 × 186 mm Innenfläche): Kopf mit Titel und Rahmen,
+  // Fußzeile mit Kategorien. Der Zeitstrahl wird so groß wie möglich gesetzt und füllt die Seite.
+  function printSvg(blank) {
+    const items = visibleItems();
+    const W = 1400;
+    const H = Math.round(W * 186 / 273);
+    const pad = 36;
+    const P = EXPORT_PAINT;
+    const esc = Layout.esc;
+    const inner = W - pad * 2 - 40; // Zeitstrahl mit etwas Abstand zum Rahmen
+    const top = 132;
+    const bottom = H - 92;
+    const room = bottom - top - 40;
+
+    // Größten Maßstab suchen, bei dem alles auf die Seite passt
+    const draw = (sc) => Layout.layout(items, view, inner, { scale: sc, family: FAM_EXPORT, measure, blank });
+    let lo = 0.8;
+    let hi = 1.7;
+    let g = draw(lo);
+    if (g.H <= room) {
+      for (let i = 0; i < 8; i++) {
+        const mid = (lo + hi) / 2;
+        const t = draw(mid);
+        if (t.H <= room) { lo = mid; g = t; } else hi = mid;
+      }
+    }
+    const gy = top + 20 + Math.max(0, (room - g.H) / 2);
+
+    // Zeitraum und Anzahl für die Unterzeile
+    const yr = (x) => (x < 1 ? `${Math.round(1 - x)} v. Chr.` : String(Math.floor(x)));
+    const first = Math.min(...items.map((i) => i.start));
+    const last = Math.max(...items.map((i) => i.end));
+    const n = items.length;
+    const sub = `${n} ${n === 1 ? 'Eintrag' : 'Einträge'} · ${first === last ? yr(first) : `${yr(first)} bis ${yr(last)}`}`;
+
+    const legend = [];
+    let lx = pad;
+    for (const c of parsed.cats) {
+      if (hiddenCats.has(c.key)) continue;
+      const tw = measure(c.name, 400, 15, FAM_EXPORT);
+      if (lx + 22 + tw > W - pad - 260) break; // rechts steht die Fußzeile
+      legend.push(`<rect x="${lx}" y="${H - 50}" width="13" height="13" rx="3" style="fill:${P.cat(c.ci)}"/>`
+        + `<text x="${lx + 20}" y="${H - 39}" style="font-size:15px;fill:${P.soft}">${esc(c.name)}</text>`);
+      lx += 20 + tw + 24;
+    }
+    const day = new Date().toLocaleDateString('de-DE');
+    const right = blank
+      ? `<text x="${W - pad}" y="58" text-anchor="end" style="font-size:16px;fill:${P.soft}">Name: ____________________</text>`
+        + `<text x="${W - pad}" y="92" text-anchor="end" style="font-size:16px;fill:${P.soft}">Datum: _____________</text>`
+      : '';
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
+      + `<rect width="${W}" height="${H}" style="fill:#FFFFFF"/>`
+      + `<text x="${pad}" y="62" style="font-size:34px;font-weight:700;fill:${P.ink}">${esc(displayName(activeTl()))}</text>`
+      + `<text x="${pad}" y="94" style="font-size:16px;fill:${P.soft}">${esc(blank ? 'Ergänze die fehlenden Ereignisse.' : sub)}</text>`
+      + right
+      + `<line x1="${pad}" y1="${top - 14}" x2="${W - pad}" y2="${top - 14}" style="stroke:${P.accent};stroke-width:3"/>`
+      + `<rect x="${pad}" y="${top}" width="${W - pad * 2}" height="${bottom - top}" rx="10" style="fill:none;stroke:${P.grid};stroke-width:1.5"/>`
+      + `<g transform="translate(${pad + 20} ${gy.toFixed(1)})">${Layout.svgBody(g, P, { selectedId: null, interactive: false, blank })}</g>`
+      + legend.join('')
+      + `<text x="${W - pad}" y="${H - 39}" text-anchor="end" style="font-size:13px;fill:${P.soft}">Zeitstrahl-Werkstatt · ${esc(day)}</text>`
+      + '</svg>';
+    return markup;
+  }
+
+  function printTimeline(blank) {
+    if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
+    const markup = printSvg(blank);
+    const area = $('print-area');
+    area.innerHTML = markup;
+    document.body.classList.add('printing');
+    const done = () => {
+      document.body.classList.remove('printing');
+      area.textContent = '';
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(done, 1000); // Browser ohne afterprint (ältere Safari-Versionen)
+  }
+
   /* ---------- Öffnen: Textdateien, Tabellen, Sicherungen, Schülerbeiträge ---------- */
 
   const str = (v, max) => (typeof v === 'string' ? v.slice(0, max || 2000) : '');
@@ -1791,6 +2088,8 @@
       else if (act === 'export-backup') exportAll();
       else if (act === 'export-png') exportPng(false);
       else if (act === 'export-png-blank') exportPng(true);
+      else if (act === 'print') printTimeline(false);
+      else if (act === 'print-blank') printTimeline(true);
       else if (act === 'open-sample') openSamples();
       else if (act === 'zugang') openZugang();
     });
@@ -1818,6 +2117,7 @@
         toast('Der Server antwortet nicht. Läuft das Server-Fenster noch?');
         return;
       }
+      loadTask().then(renderTaskState);
       renderAbgabenList();
       $('abgaben').showModal();
     });
@@ -1825,10 +2125,16 @@
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
     $('task-form').addEventListener('submit', saveTask);
+    $('btn-sperre').addEventListener('click', toggleSperre);
     $('zugang-close').addEventListener('click', () => $('zugang').close());
     $('btn-logout').addEventListener('click', logout);
     $('sp-copy').addEventListener('click', copyStudentView);
     $('sp-del').addEventListener('click', deleteStudentView);
+    $('btn-sort').addEventListener('click', openSort);
+    $('sort-close').addEventListener('click', () => $('sort').close());
+    $('sort-check').addEventListener('click', checkSort);
+    $('sort-solve').addEventListener('click', solveSort);
+    $('sort-new').addEventListener('click', openSort);
     $('tl-prev').addEventListener('click', () => stepTimeline(-1));
     $('tl-next').addEventListener('click', () => stepTimeline(1));
 
@@ -1840,7 +2146,7 @@
         toast(REMOTE ? 'Wird auf dem Laptop gespeichert.' : 'In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
         return;
       }
-      if ($('abgaben').open || $('connect').open || $('zugang').open || $('import-ask').open) return;
+      if ($('abgaben').open || $('connect').open || $('zugang').open || $('import-ask').open || $('sort').open) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
       if (present) {
