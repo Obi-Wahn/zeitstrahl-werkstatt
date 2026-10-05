@@ -6,7 +6,8 @@
  *                               starten-mac.command bzw. starten-linux.sh)
  *         node server.js 9000   (anderer Port, nur für diesen Start)
  *
- *   Lehrkraft:  http://localhost:8080          nur an diesem Laptop
+ *   Lehrkraft:  http://localhost:8080          an diesem Laptop
+ *   Lehrer-PC:  http://<IP des Laptops>:8080/lehrkraft   mit Passwort, siehe unten
  *   iPads:      http://<IP des Laptops>:8080   öffnet die Schülerseite
  *
  * Der Port steht in einstellungen.txt (Zeile „port = 8080“).
@@ -16,6 +17,9 @@
  * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
  * Die Zeitstrahlen der Lehrkraft liegen zusätzlich je als eigene Datei in
  * daten/zeitstrahlen, dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
+ * Legt die Lehrkraft am Laptop ein Passwort fest (Datei → Am Lehrer-PC öffnen),
+ * kommt sie auch von einem anderen Gerät im Netz in die Lehrkraft-Ansicht,
+ * z. B. vom Lehrer-PC am Beamer. Gespeichert wird nur ein Hash in daten/zugang.json.
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -40,6 +44,7 @@ const OLD_BACKUP = path.join(DATA, 'sicherung.json'); // frühere Sicherung in e
 const BACKUP_DAYS = path.join(DATA, 'sicherungen');
 const KEEP_DAYS = 14;                    // so viele Tagessicherungen bleiben liegen
 const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt');
+const ACCESS_FILE = path.join(DATA, 'zugang.json'); // Hash des Passworts für andere Geräte
 
 const args = process.argv.slice(2);
 const OPEN_BROWSER = !args.includes('--kein-browser');
@@ -79,6 +84,10 @@ const MAX_ENTRIES = 80;                  // Ereignisse pro Schüler-Zeitstrahl
 const MAX_IMAGE = 6 * 1024 * 1024;       // ein Bild als data:-URL
 const RATE_LIMIT = 30;                   // Speichervorgänge pro Minute und Gerät
 const CODE_TRIES = 10;                   // falsche Codes pro Minute und Gerät
+const LOGIN_TRIES = 10;                  // falsche Passwörter pro Minute und Gerät
+const MIN_PASSWORD = 6;                  // Mindestlänge des Passworts
+const SESSION_HOURS = 12;                // so lange bleibt ein anderes Gerät angemeldet
+const COOKIE = 'zeitstrahl-lehrkraft';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -100,17 +109,135 @@ const CSP = [
 
 /* ---------- Wer fragt? ---------- */
 
-// Lehrkraft = Anfrage vom Laptop selbst, über localhost aufgerufen
-function isTeacher(req) {
+// Anfrage vom Laptop selbst, über localhost aufgerufen
+function isLocal(req) {
   const addr = req.socket.remoteAddress || '';
   const fromHere = addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
   const host = (req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
   return fromHere && (host === 'localhost' || host === '127.0.0.1' || host === '::1');
 }
 
+// Lehrkraft = am Laptop selbst oder an einem anderen Gerät mit Passwort angemeldet
+const isTeacher = (req) => isLocal(req) || hasSession(req);
+
 // Schutz vor fremden Webseiten, die im Browser der Lehrkraft Anfragen auslösen könnten:
 // Der eigene Kopf erzwingt beim Browser eine Rückfrage, die dieser Server nie erlaubt.
 const teacherApi = (req) => isTeacher(req) && req.headers['x-zeitstrahl'] === 'lehrkraft';
+const localApi = (req) => isLocal(req) && req.headers['x-zeitstrahl'] === 'lehrkraft';
+
+/* ---------- Zugang von anderen Geräten (Lehrer-PC) ---------- */
+
+// Angemeldete Geräte: Schlüssel im Cookie → Zeitpunkt der Anmeldung. Nach einem
+// Neustart des Servers oder einem neuen Passwort melden sich alle Geräte neu an.
+const sessions = new Map();
+
+function cookieValue(req, name) {
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return '';
+}
+
+function hasSession(req) {
+  const token = cookieValue(req, COOKIE);
+  const since = token && sessions.get(token);
+  if (!since) return false;
+  if (Date.now() - since > SESSION_HOURS * 3600000) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function readAccess() {
+  try {
+    const d = JSON.parse(fs.readFileSync(ACCESS_FILE, 'utf8'));
+    return typeof d.salt === 'string' && typeof d.hash === 'string' ? d : null;
+  } catch (e) {
+    return null; // kein Passwort festgelegt
+  }
+}
+
+const hashPassword = (pw, salt) => crypto.scryptSync(String(pw).normalize('NFC'), salt, 32).toString('hex');
+
+function checkPassword(pw) {
+  const a = readAccess();
+  if (!a || typeof pw !== 'string' || !pw) return false;
+  return crypto.timingSafeEqual(Buffer.from(hashPassword(pw, a.salt), 'hex'), Buffer.from(a.hash, 'hex'));
+}
+
+async function setPassword(req, res) {
+  const d = await readJson(req, 4096);
+  const pw = typeof d.passwort === 'string' ? d.passwort : '';
+  if ([...pw].length < MIN_PASSWORD) return sendJson(res, 400, { fehler: `Das Passwort braucht mindestens ${MIN_PASSWORD} Zeichen.` });
+  const salt = crypto.randomBytes(16).toString('hex');
+  await fsp.mkdir(DATA, { recursive: true });
+  await writeAtomic(ACCESS_FILE, JSON.stringify({ salt, hash: hashPassword(pw, salt), geaendert: new Date().toISOString() }));
+  sessions.clear();
+  console.log(`${time()}  Passwort für andere Geräte festgelegt. Angemeldete Geräte müssen sich neu anmelden.`);
+  sendJson(res, 200, accessInfo());
+}
+
+async function removePassword(res) {
+  await fsp.unlink(ACCESS_FILE).catch(() => {});
+  sessions.clear();
+  console.log(`${time()}  Zugang von anderen Geräten abgeschaltet.`);
+  sendJson(res, 200, accessInfo());
+}
+
+const accessInfo = () => ({ passwort: !!readAccess(), angemeldet: sessions.size });
+
+function loginPage(res, hinweis) {
+  let html;
+  try {
+    html = fs.readFileSync(path.join(ROOT, 'anmelden.html'), 'utf8');
+  } catch (e) {
+    return send(res, 500, 'anmelden.html fehlt');
+  }
+  const text = !readAccess()
+    ? 'Am Laptop ist noch kein Passwort festgelegt. Dort in der Lehrkraft-Ansicht unter „Datei → Am Lehrer-PC öffnen“ eins festlegen.'
+    : hinweis === 'falsch' ? 'Das Passwort stimmt nicht.'
+      : hinweis === 'gesperrt' ? 'Zu viele falsche Versuche. Bitte eine Minute warten.'
+        : hinweis === 'abgemeldet' ? 'Abgemeldet.' : '';
+  html = html.replace('<!--hinweis-->', text ? `<p class="login-msg" role="alert">${escHtml(text)}</p>` : '');
+  send(res, 200, html, TYPES['.html']);
+}
+
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+async function login(req, res) {
+  const back = (hinweis) => {
+    res.writeHead(303, { Location: '/lehrkraft' + (hinweis ? '?hinweis=' + hinweis : ''), 'Cache-Control': 'no-store' });
+    res.end();
+  };
+  if (tooManyWrongLogins(req, false)) return back('gesperrt');
+  const pw = new URLSearchParams(await readBody(req, 4096)).get('passwort');
+  if (!checkPassword(pw)) {
+    tooManyWrongLogins(req);
+    console.log(`${time()}  Falsches Passwort für die Lehrkraft-Ansicht, von ${req.socket.remoteAddress}`);
+    return back('falsch');
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, Date.now());
+  console.log(`${time()}  Lehrkraft-Ansicht geöffnet von ${req.socket.remoteAddress}`);
+  res.writeHead(303, {
+    Location: '/lehrkraft',
+    'Set-Cookie': `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`,
+    'Cache-Control': 'no-store',
+  });
+  res.end();
+}
+
+function logout(req, res) {
+  sessions.delete(cookieValue(req, COOKIE));
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`,
+    'Cache-Control': 'no-store',
+  });
+  res.end('{"ok":true}');
+}
 
 // Virtuelle Adapter (VirtualBox, VMware, Hyper-V/WSL, Docker, VPN, Bluetooth) und der
 // Windows-Hotspot („LAN-Verbindung* 10“, 192.168.137.x) sind für die iPads nicht gedacht.
@@ -187,11 +314,10 @@ async function serveStatic(req, res, pathname) {
   } catch (e) {
     return send(res, 400, 'Ungültige Adresse');
   }
-  const teacher = isTeacher(req);
   if (rel === '' || rel === 'index.html') {
-    if (!teacher) {
-      // iPads landen immer auf der Schülerseite
-      res.writeHead(302, { Location: '/beitrag.html' });
+    if (!isLocal(req)) {
+      // iPads landen immer auf der Schülerseite, angemeldete Geräte in der Lehrkraft-Ansicht
+      res.writeHead(302, { Location: hasSession(req) ? '/lehrkraft' : '/beitrag.html' });
       return res.end();
     }
     rel = 'index.html';
@@ -202,6 +328,10 @@ async function serveStatic(req, res, pathname) {
   if (!allowed || !file.startsWith(ROOT + path.sep) || !TYPES[path.extname(file)]) {
     return send(res, 404, 'Nicht gefunden');
   }
+  return sendFile(res, file);
+}
+
+async function sendFile(res, file) {
   try {
     const data = await fsp.readFile(file);
     res.writeHead(200, {
@@ -243,6 +373,7 @@ function limiter(max) {
 }
 const tooManySaves = limiter(RATE_LIMIT);
 const tooManyWrongCodes = limiter(CODE_TRIES);
+const tooManyWrongLogins = limiter(LOGIN_TRIES);
 
 /* ---------- Aufgabe: das Thema der Lehrkraft ---------- */
 
@@ -424,6 +555,14 @@ function freeName(base, taken) {
 // Speichervorgänge nacheinander abarbeiten, damit sich zwei nicht in die Quere kommen
 let backupQueue = Promise.resolve();
 
+// Stand der Zeitstrahlen. Er ändert sich mit jeder gespeicherten Änderung. Bearbeiten
+// Laptop und Lehrer-PC gleichzeitig, schickt jedes Gerät den Stand mit, auf dem seine
+// Änderung beruht. Passt er nicht mehr, lädt das Gerät erst den neuen Stand.
+const BOOT = Date.now().toString(36);
+let standNr = 0;
+let stand = `${BOOT}-0`;
+let lastOrder = null;
+
 // Welche Datei gehört zu welchem Zeitstrahl, und wie sah sie zuletzt aus
 const files = new Map(); // id → { datei, hash }
 const hashOf = (text) => crypto.createHash('sha1').update(text).digest('hex');
@@ -496,20 +635,21 @@ function migrateBackup() {
 function loadTimelines() {
   migrateBackup();
   readTimelines();
+  lastOrder = readOrder().reihenfolge.join();
 }
 
 async function loadBackup(res) {
   await backupQueue; // erst fertig speichern, dann lesen
   files.clear();
   const list = readTimelines();
-  if (!list.length) return sendJson(res, 200, { leer: true }); // noch keine Sicherung vorhanden
+  if (!list.length) return sendJson(res, 200, { leer: true, stand }); // noch keine Sicherung vorhanden
   const { activeId, reihenfolge } = readOrder();
   const pos = (t) => {
     const i = reihenfolge.indexOf(t.id);
     return i < 0 ? Infinity : i;
   };
   list.sort((a, b) => pos(a) - pos(b) || a.name.localeCompare(b.name, 'de'));
-  sendJson(res, 200, { app: 'zeitstrahl-werkstatt', activeId, timelines: list });
+  sendJson(res, 200, { app: 'zeitstrahl-werkstatt', activeId, stand, timelines: list });
 }
 
 // Speichert nur, was sich geändert hat. Umbenannte Zeitstrahlen bekommen einen
@@ -566,10 +706,14 @@ async function writeTimelines(d) {
     if (f && f.datei !== datei) await fsp.unlink(path.join(TIMELINES, f.datei)).catch(() => {});
     files.set(t.id, { datei, hash });
   }
+  const order = list.map((t) => t.id);
   await writeAtomic(path.join(TIMELINES, ORDER_FILE), JSON.stringify({
     activeId: typeof d.activeId === 'string' ? d.activeId : '',
-    reihenfolge: list.map((t) => t.id),
+    reihenfolge: order,
   }));
+  // Nur ein anderer gezeigter Zeitstrahl ist keine Änderung für die anderen Geräte
+  if (changed || order.join() !== lastOrder) stand = `${BOOT}-${++standNr}`;
+  lastOrder = order.join();
 }
 
 async function saveBackup(req, res) {
@@ -581,11 +725,15 @@ async function saveBackup(req, res) {
   } catch (e) {
     return sendJson(res, 400, { fehler: 'Ungültige Sicherung.' });
   }
-  const job = backupQueue.then(() => writeTimelines(d));
+  const job = backupQueue.then(() => {
+    // Ohne mitgeschickten Stand (Seite ohne Abgleich) wird wie bisher gespeichert
+    if (typeof d.stand === 'string' && d.stand !== stand) return false;
+    return writeTimelines(d).then(() => true);
+  });
   backupQueue = job.catch(() => {});
   try {
-    await job;
-    sendJson(res, 200, { ok: true });
+    if (!(await job)) return sendJson(res, 409, { fehler: 'Auf einem anderen Gerät wurde inzwischen etwas geändert.', stand });
+    sendJson(res, 200, { ok: true, stand });
   } catch (e) {
     console.error(`${time()}  Speichern der Zeitstrahlen fehlgeschlagen: ${e.message}`);
     sendJson(res, 500, { fehler: 'Speichern auf dem Laptop hat nicht geklappt.' });
@@ -633,14 +781,35 @@ async function handle(req, res) {
   if (p === '/api/abgaben' && m === 'POST') return saveAbgabe(req, res);
   if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})$/)) && m === 'GET') return loadByCode(req, res, mm[1]);
 
-  // Nur am Laptop der Lehrkraft
+  // Anmelden an einem anderen Gerät (Lehrer-PC)
+  if (p === '/lehrkraft' || p === '/lehrkraft/') {
+    if (m === 'POST') return login(req, res);
+    if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Nicht erlaubt');
+    if (isLocal(req)) {
+      res.writeHead(302, { Location: '/' }); // am Laptop selbst braucht es kein Passwort
+      return res.end();
+    }
+    if (hasSession(req)) return sendFile(res, path.join(ROOT, 'index.html'));
+    return loginPage(res, url.searchParams.get('hinweis'));
+  }
+
+  // Passwort festlegen nur am Laptop selbst
+  if (p === '/api/zugang') {
+    if (!localApi(req)) return sendJson(res, 403, { fehler: 'Nur am Laptop der Lehrkraft erlaubt.' });
+    if (m === 'GET') return sendJson(res, 200, { ...accessInfo(), port: server.address().port, adressen: lanAddresses() });
+    if (m === 'PUT') return setPassword(req, res);
+    if (m === 'DELETE') return removePassword(res);
+  }
+
+  // Nur für die Lehrkraft: am Laptop oder angemeldet an einem anderen Gerät
   if (p.startsWith('/api/')) {
     if (!teacherApi(req)) return sendJson(res, 403, { fehler: 'Nur am Laptop der Lehrkraft erlaubt.' });
+    if (p === '/api/abmelden' && m === 'POST') return logout(req, res);
     if (p === '/api/verbindung' && m === 'GET') return sendJson(res, 200, { port: server.address().port, adressen: lanAddresses() });
     if (p === '/api/aufgabe' && m === 'PUT') return saveTask(req, res);
     if (p === '/api/abgaben' && m === 'GET') {
       const list = [...index.values()].sort((a, b) => a.thema.localeCompare(b.thema, 'de') || a.erstellt.localeCompare(b.erstellt));
-      return sendJson(res, 200, { abgaben: list });
+      return sendJson(res, 200, { abgaben: list, stand });
     }
     if ((mm = p.match(/^\/api\/abgaben\/([a-f0-9]{16})$/))) {
       if (m === 'GET') return sendAbgabe(res, mm[1]);
@@ -689,6 +858,11 @@ server.listen(PORT, '0.0.0.0', () => {
     for (const ip of lan.slice(1)) console.log(`                              http://${withPort(ip)}`);
   } else {
     console.log('  Keine Netzwerkverbindung gefunden. Ist der Laptop im WLAN?');
+  }
+  if (lan.length && readAccess()) {
+    console.log(`  Lehrer-PC (mit Passwort):   http://${withPort(lan[0])}/lehrkraft`);
+  } else if (lan.length) {
+    console.log('  Lehrer-PC:                  erst ein Passwort festlegen (Datei → Am Lehrer-PC öffnen)');
   }
   console.log(`\n  Port ${PORT} (änderbar in einstellungen.txt)`);
   console.log('  Zum Beenden dieses Fenster schließen oder Strg+C drücken.\n');

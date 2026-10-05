@@ -47,9 +47,12 @@
           <hr>
           <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.zip)</button>
           <button type="button" role="menuitem" data-act="open-sample">Beispiel öffnen …</button>
+          <hr class="zugang-only" hidden>
+          <button type="button" role="menuitem" data-act="zugang" class="zugang-only" hidden>Am Lehrer-PC öffnen …</button>
         </div>
         <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,.zip,text/plain,application/json,text/csv,application/zip" multiple hidden>
       </div>
+      <button type="button" class="btn ghost" id="btn-logout" hidden>Abmelden</button>
       <button type="button" id="btn-present" class="btn primary">Tafelbild</button>
     </div>
   </header>
@@ -232,6 +235,30 @@
   <p id="connect-none" class="connect-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden. Bitte mit dem WLAN verbinden und den Dialog erneut öffnen.</p>
   <div class="review-foot">
     <button type="button" class="btn primary" id="connect-close">Schließen</button>
+  </div>
+</dialog>
+
+<dialog id="zugang" class="connect zugang" aria-labelledby="zugang-title">
+  <h2 id="zugang-title">Am Lehrer-PC öffnen</h2>
+  <div class="zugang-body">
+    <p>Am Lehrer-PC oder einem anderen Gerät im selben Netz im Browser eingeben:</p>
+    <p class="connect-url" id="zugang-url"></p>
+    <p class="connect-alt" id="zugang-alt" hidden></p>
+    <p class="connect-none" id="zugang-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden.</p>
+    <p>Nach dem Passwort erscheint dort dieselbe Lehrkraft-Ansicht wie hier, mit Tafelbild, iPads verbinden und den Schüler-Zeitstrahlen. Änderungen erscheinen nach wenigen Sekunden auf beiden Geräten.</p>
+    <p class="zugang-state" id="zugang-state" role="status"></p>
+    <form class="zugang-form" id="zugang-form">
+      <div class="field">
+        <label for="zugang-pw" id="zugang-pw-label">Passwort festlegen</label>
+        <input id="zugang-pw" type="password" minlength="6" autocomplete="new-password" placeholder="mindestens 6 Zeichen">
+      </div>
+      <button type="submit" class="btn primary" id="zugang-save">Festlegen</button>
+      <button type="button" class="btn ghost danger" id="zugang-off" hidden>Zugang abschalten</button>
+    </form>
+    <p class="zugang-note">Die Verbindung im Schulnetz ist nicht verschlüsselt. Bitte ein Passwort wählen, das du sonst nirgends benutzt. Ein neues Passwort meldet alle anderen Geräte ab.</p>
+  </div>
+  <div class="review-foot">
+    <button type="button" class="btn primary" id="zugang-close">Schließen</button>
   </div>
 </dialog>
 
