@@ -55,7 +55,7 @@ Danach das Server-Fenster schließen und neu starten. Die neue Adresse steht im 
 
 Bei Port **80** brauchen die iPads gar keine Portnummer (`192.168.178.23` genügt). Auf Mac und Linux braucht Port 80 allerdings Administratorrechte.
 
-Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrkraft-Ansicht die Zeitstrahlen deshalb automatisch aus `daten/sicherung.json` zurück.
+Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrkraft-Ansicht die Zeitstrahlen deshalb automatisch aus `daten/zeitstrahlen/` zurück.
 
 ## Ohne Server
 
@@ -65,9 +65,10 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 
 ## Sichern, weitergeben, einlesen
 
-- **Mit Server** liegt alles zusätzlich in `daten/sicherung.json`. Vor der ersten Änderung eines Tages legt der Server den bisherigen Stand als Tageskopie in `daten/sicherungen/` ab (z. B. `2026-10-04.json`), die letzten 14 bleiben liegen. Ein versehentlich gelöschter Zeitstrahl lässt sich so über **Datei → Öffnen** aus der Kopie zurückholen.
+- **Mit Server** liegt jeder Zeitstrahl zusätzlich als eigene Datei in `daten/zeitstrahlen/`, benannt nach seinem Titel (z. B. `weimarer-republik.json`). Jede Datei lässt sich über **Datei → Öffnen** einlesen oder weitergeben. Gelöschte Zeitstrahlen wandern nach `daten/zeitstrahlen/geloescht/`. Vor der ersten Änderung eines Tages legt der Server den bisherigen Stand als Tageskopie in einem Ordner wie `daten/sicherungen/2026-10-05/` ab, die letzten 14 bleiben liegen. Eine frühere `daten/sicherung.json` wird beim ersten Start einmalig in Einzeldateien aufgeteilt und bleibt als `sicherung-alt.json` liegen.
+- **Alles auf einmal sichern**, auch die Schülerarbeiten: den Ordner `daten` kopieren, z. B. auf einen USB-Stick.
 - **Ohne Server** liegt alles nur im Browser. Die Werkstatt bittet den Browser, die Daten dauerhaft zu behalten. Gab es seit sieben Tagen Änderungen ohne Sicherung als Datei, erscheint oben **Jetzt sichern**.
-- **Alle Zeitstrahlen sichern** speichert eine .json-Datei mit allen Zeitstrahlen und Bildern. Beim Öffnen einer solchen Sicherung fragt die Werkstatt: **Hinzufügen** legt nur fehlende Zeitstrahlen an, **Ersetzen** stellt genau den Stand der Sicherung her.
+- **Alle Zeitstrahlen sichern** speichert eine ZIP-Datei, darin je Zeitstrahl eine eigene .json-Datei mit Bildern. Beim Öffnen der ZIP-Datei (oder einer älteren .json-Sicherung) einer solchen Sicherung fragt die Werkstatt: **Hinzufügen** legt nur fehlende Zeitstrahlen an, **Ersetzen** stellt genau den Stand der Sicherung her.
 - **Mit Bildern sichern** speichert nur den gerade gezeigten Zeitstrahl, zum Weitergeben an Kolleginnen und Kollegen.
 - **Tabellen** aus Excel, Numbers oder LibreOffice lassen sich als .csv öffnen. Eine Zeile pro Ereignis, die Spalten Datum, Titel, Kategorie und Beschreibung. Mit Kopfzeile dürfen die Spalten in beliebiger Reihenfolge stehen.
 - Öffnet man denselben Zeitstrahl ein zweites Mal, wird er nicht doppelt angelegt.
@@ -83,7 +84,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
 | Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
 | Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
-| Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich in `daten/sicherung.json` mit Tageskopien. Einlesen von .txt, .json und .csv. |
+| Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich je Zeitstrahl als Datei in `daten/zeitstrahlen/` mit Tageskopien. Alle sichern als ZIP. Einlesen von .txt, .json, .csv und .zip. |
 
 ## Schreibweise der Einträge
 
@@ -114,9 +115,9 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
 - **Keine Cloud, keine Konten:** Der Server läuft nur auf dem Laptop und nur, solange das Fenster offen ist.
 - **Daten im Ordner `daten/`:**
   - `aufgabe.json`: das aktuelle Thema und der Arbeitsauftrag
-  - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei
+  - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei wie `reformation-lena-und-tom-K7M2X.json` (Thema, Vornamen, Code)
   - `archiv/`: gelöschte Abgaben
-  - `sicherung.json`: die Zeitstrahlen der Lehrkraft
+  - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`
   - `sicherungen/`: je Tag eine Kopie davon, die letzten 14
 
   Nach Abschluss einer Unterrichtseinheit können `abgaben/` und `archiv/` gelöscht werden.
@@ -137,11 +138,12 @@ fonts/               Alegreya, Atkinson Hyperlegible, IBM Plex Mono (SIL Open Fo
 js/parser.js         Text → Einträge: Datumsformate, v. Chr., Zeiträume, Kategorien, Tabellen (.csv)
 js/layout.js         Einträge → Positionen: Skala, Spuren gegen Überlappung, SVG
 js/bild.js           Bilder im Browser verkleinern (höchstens 1000 px)
+js/zip.js            ZIP-Dateien packen und lesen, ohne Zusatzbibliothek
 js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
-tests/               node tests/parser.test.js
+tests/               node tests/parser.test.js und node tests/zip.test.js
 ```
 
 Mögliche Anknüpfungspunkte im Unterricht:

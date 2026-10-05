@@ -14,8 +14,8 @@
  * Ablauf: Die Lehrkraft gibt ein Thema vor (daten/aufgabe.json). Schülerinnen
  * und Schüler bauen dazu auf dem iPad je einen eigenen Zeitstrahl und speichern
  * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
- * Die Zeitstrahlen der Lehrkraft liegen zusätzlich in daten/sicherung.json,
- * dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
+ * Die Zeitstrahlen der Lehrkraft liegen zusätzlich je als eigene Datei in
+ * daten/zeitstrahlen, dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -33,7 +33,10 @@ const DATA = path.join(ROOT, 'daten');
 const ABGABEN = path.join(DATA, 'abgaben');
 const ARCHIVE = path.join(DATA, 'archiv');
 const TASK = path.join(DATA, 'aufgabe.json');
-const BACKUP = path.join(DATA, 'sicherung.json');
+const TIMELINES = path.join(DATA, 'zeitstrahlen');
+const DELETED = path.join(TIMELINES, 'geloescht');
+const ORDER_FILE = '_reihenfolge.json';    // Reihenfolge und zuletzt gezeigter Zeitstrahl
+const OLD_BACKUP = path.join(DATA, 'sicherung.json'); // frühere Sicherung in einer Datei
 const BACKUP_DAYS = path.join(DATA, 'sicherungen');
 const KEEP_DAYS = 14;                    // so viele Tagessicherungen bleiben liegen
 const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt');
@@ -260,9 +263,13 @@ const newCode = () => [...crypto.randomBytes(5)].map((b) => CODE_CHARS[b % CODE_
 // Übersicht im Speicher, damit die Lehrkraft-Ansicht nicht ständig alle Bilder liest
 const index = new Map();
 
-function summary(a) {
+// Lesbarer Dateiname, z. B. reformation-lena-und-tom-K7M2X.json
+const abgabeFile = (a) => `${slug(a.thema)}-${slug(a.von)}-${a.code}.json`;
+
+function summary(a, datei) {
   return {
     id: a.id,
+    datei,
     code: a.code,
     thema: a.thema,
     titel: a.titel,
@@ -285,7 +292,14 @@ function loadIndex() {
   for (const f of files) {
     try {
       const a = JSON.parse(fs.readFileSync(path.join(ABGABEN, f), 'utf8'));
-      if (ID_RX.test(a.id) && Array.isArray(a.eintraege)) index.set(a.id, summary(a));
+      if (!ID_RX.test(a.id) || !CODE_RX.test(a.code) || !Array.isArray(a.eintraege)) continue;
+      // Ältere Abgaben hießen nur nach ihrer Kennung (3f9a1c7e5b2d8a04.json)
+      let datei = f;
+      if (f !== abgabeFile(a) && !fs.existsSync(path.join(ABGABEN, abgabeFile(a)))) {
+        fs.renameSync(path.join(ABGABEN, f), path.join(ABGABEN, abgabeFile(a)));
+        datei = abgabeFile(a);
+      }
+      index.set(a.id, summary(a, datei));
     } catch (e) { /* unlesbare Datei überspringen */ }
   }
 }
@@ -337,8 +351,11 @@ async function saveAbgabe(req, res) {
     eintraege,
   };
   await fsp.mkdir(ABGABEN, { recursive: true });
-  await writeAtomic(path.join(ABGABEN, abgabe.id + '.json'), JSON.stringify(abgabe));
-  index.set(abgabe.id, summary(abgabe));
+  const datei = abgabeFile(abgabe);
+  await writeAtomic(path.join(ABGABEN, datei), JSON.stringify(abgabe));
+  // Haben sich die Namen geändert, heißt auch die Datei anders
+  if (old && old.datei !== datei) await fsp.unlink(path.join(ABGABEN, old.datei)).catch(() => {});
+  index.set(abgabe.id, summary(abgabe, datei));
   const what = abgabe.status === 'abgegeben' ? 'Abgegeben' : 'Zwischengespeichert';
   console.log(`${time()}  ${what}: „${abgabe.titel || abgabe.thema}“ von ${von} (${eintraege.length} Ereignisse, Code ${code})`);
   sendJson(res, 200, { id: abgabe.id, code, thema: abgabe.thema, status: abgabe.status, aktualisiert: now });
@@ -346,7 +363,8 @@ async function saveAbgabe(req, res) {
 
 async function sendAbgabe(res, id) {
   try {
-    send(res, 200, await fsp.readFile(path.join(ABGABEN, id + '.json'), 'utf8'), 'application/json; charset=utf-8');
+    if (!index.has(id)) throw new Error();
+    send(res, 200, await fsp.readFile(path.join(ABGABEN, index.get(id).datei), 'utf8'), 'application/json; charset=utf-8');
   } catch (e) {
     sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
   }
@@ -366,27 +384,201 @@ async function loadByCode(req, res, raw) {
 
 async function archiveAbgabe(res, id) {
   await fsp.mkdir(ARCHIVE, { recursive: true });
+  const a = index.get(id);
   try {
-    await fsp.rename(path.join(ABGABEN, id + '.json'), path.join(ARCHIVE, id + '.json'));
+    const taken = new Set(await fsp.readdir(ARCHIVE));
+    await fsp.rename(path.join(ABGABEN, a.datei), path.join(ARCHIVE, freeName(a.datei.replace(/\.json$/, ''), taken)));
   } catch (e) { /* schon entfernt */ }
   index.delete(id);
   sendJson(res, 200, { ok: true });
 }
 
-/* ---------- Sicherung der Zeitstrahlen ---------- */
+/* ---------- Zeitstrahlen der Lehrkraft: je Zeitstrahl eine Datei ---------- */
+
+// Dateiname aus einem Titel: „Weimarer Republik“ → weimarer-republik
+function slug(name) {
+  const s = String(name || '').toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  return s || 'zeitstrahl';
+}
+
+// Freier Dateiname in einem Ordner: name.json, sonst name-2.json, name-3.json …
+function freeName(base, taken) {
+  let name = base + '.json';
+  for (let i = 2; taken.has(name); i++) name = `${base}-${i}.json`;
+  return name;
+}
+
+// Speichervorgänge nacheinander abarbeiten, damit sich zwei nicht in die Quere kommen
+let backupQueue = Promise.resolve();
+
+// Welche Datei gehört zu welchem Zeitstrahl, und wie sah sie zuletzt aus
+const files = new Map(); // id → { datei, hash }
+const hashOf = (text) => crypto.createHash('sha1').update(text).digest('hex');
+
+// Inhalt einer Einzeldatei. Sie lässt sich in der Lehrkraft-Ansicht über „Datei → Öffnen“ einlesen.
+function timelineFile(t) {
+  return JSON.stringify({
+    typ: 'zeitstrahl-sicherung',
+    version: 1,
+    timelines: [{ id: t.id, name: t.name, source: t.source, images: t.images && typeof t.images === 'object' ? t.images : {} }],
+  });
+}
+
+function readTimelines() {
+  const list = [];
+  let names = [];
+  try {
+    names = fs.readdirSync(TIMELINES).filter((f) => f.endsWith('.json') && f !== ORDER_FILE);
+  } catch (e) {
+    return list; // noch keine Zeitstrahlen
+  }
+  for (const datei of names) {
+    try {
+      const text = fs.readFileSync(path.join(TIMELINES, datei), 'utf8');
+      const t = JSON.parse(text).timelines[0];
+      if (!t || typeof t.id !== 'string' || typeof t.name !== 'string' || typeof t.source !== 'string') continue;
+      if (files.has(t.id)) continue; // doppelte Kennung: erste Datei gilt
+      files.set(t.id, { datei, hash: hashOf(text) });
+      list.push(t);
+    } catch (e) { /* unlesbare Datei überspringen */ }
+  }
+  return list;
+}
+
+function readOrder() {
+  try {
+    const o = JSON.parse(fs.readFileSync(path.join(TIMELINES, ORDER_FILE), 'utf8'));
+    return { activeId: typeof o.activeId === 'string' ? o.activeId : '', reihenfolge: Array.isArray(o.reihenfolge) ? o.reihenfolge : [] };
+  } catch (e) {
+    return { activeId: '', reihenfolge: [] };
+  }
+}
+
+// Früher lag alles zusammen in daten/sicherung.json. Beim ersten Start wird sie
+// einmalig in Einzeldateien aufgeteilt und bleibt als sicherung-alt.json liegen.
+function migrateBackup() {
+  if (fs.existsSync(TIMELINES) || !fs.existsSync(OLD_BACKUP)) return;
+  try {
+    const d = JSON.parse(fs.readFileSync(OLD_BACKUP, 'utf8'));
+    if (!d || !Array.isArray(d.timelines)) return;
+    fs.mkdirSync(TIMELINES, { recursive: true });
+    const taken = new Set();
+    const ids = [];
+    for (const t of d.timelines) {
+      if (!t || typeof t.name !== 'string' || typeof t.source !== 'string') continue;
+      const id = typeof t.id === 'string' && t.id ? t.id : 't' + crypto.randomBytes(5).toString('hex');
+      const datei = freeName(slug(t.name), taken);
+      taken.add(datei);
+      fs.writeFileSync(path.join(TIMELINES, datei), timelineFile({ ...t, id }));
+      ids.push(id);
+    }
+    fs.writeFileSync(path.join(TIMELINES, ORDER_FILE), JSON.stringify({ activeId: d.activeId || ids[0], reihenfolge: ids }));
+    fs.renameSync(OLD_BACKUP, path.join(DATA, 'sicherung-alt.json'));
+    console.log(`  Die Sicherung wurde in ${ids.length} Einzeldateien in daten/zeitstrahlen aufgeteilt.`);
+  } catch (e) {
+    console.error('  daten/sicherung.json ließ sich nicht aufteilen und bleibt unverändert.');
+  }
+}
+
+function loadTimelines() {
+  migrateBackup();
+  readTimelines();
+}
+
+async function loadBackup(res) {
+  await backupQueue; // erst fertig speichern, dann lesen
+  files.clear();
+  const list = readTimelines();
+  if (!list.length) return sendJson(res, 200, { leer: true }); // noch keine Sicherung vorhanden
+  const { activeId, reihenfolge } = readOrder();
+  const pos = (t) => {
+    const i = reihenfolge.indexOf(t.id);
+    return i < 0 ? Infinity : i;
+  };
+  list.sort((a, b) => pos(a) - pos(b) || a.name.localeCompare(b.name, 'de'));
+  sendJson(res, 200, { app: 'zeitstrahl-werkstatt', activeId, timelines: list });
+}
+
+// Speichert nur, was sich geändert hat. Umbenannte Zeitstrahlen bekommen einen
+// neuen Dateinamen, gelöschte wandern nach daten/zeitstrahlen/geloescht.
+async function writeTimelines(d) {
+  await fsp.mkdir(TIMELINES, { recursive: true });
+  const list = d.timelines.filter((t) => t && typeof t.id === 'string' && t.id
+    && typeof t.name === 'string' && typeof t.source === 'string');
+  const keep = new Set(list.map((t) => t.id));
+  let changed = false;
+  const before = async () => {
+    if (!changed) { changed = true; await keepDailyCopy(); }
+  };
+
+  // Gelöschte Zeitstrahlen zuerst beiseitelegen, dann ist ihr Dateiname wieder frei
+  for (const [id, f] of [...files]) {
+    if (keep.has(id)) continue;
+    await before();
+    await fsp.mkdir(DELETED, { recursive: true });
+    const gone = new Set(await fsp.readdir(DELETED));
+    try {
+      await fsp.rename(path.join(TIMELINES, f.datei), path.join(DELETED, freeName(f.datei.replace(/\.json$/, ''), gone)));
+    } catch (e) { /* schon weg */ }
+    files.delete(id);
+  }
+
+  // Dateien behalten ihren Namen, solange der Titel dazu passt
+  const taken = new Set();
+  const wanted = new Map();
+  for (const t of list) {
+    const f = files.get(t.id);
+    if (f && new RegExp(`^${slug(t.name)}(-\\d+)?\\.json$`).test(f.datei)) {
+      wanted.set(t.id, f.datei);
+      taken.add(f.datei);
+    }
+  }
+  // Umbenannte belegen ihren alten Namen noch, bis die neue Datei geschrieben ist
+  for (const [id, f] of files) if (!wanted.has(id)) taken.add(f.datei);
+  for (const t of list) {
+    if (wanted.has(t.id)) continue;
+    const datei = freeName(slug(t.name), taken);
+    taken.add(datei);
+    wanted.set(t.id, datei);
+  }
+
+  for (const t of list) {
+    const text = timelineFile(t);
+    const hash = hashOf(text);
+    const f = files.get(t.id);
+    const datei = wanted.get(t.id);
+    if (f && f.hash === hash && f.datei === datei) continue;
+    await before();
+    await writeAtomic(path.join(TIMELINES, datei), text);
+    if (f && f.datei !== datei) await fsp.unlink(path.join(TIMELINES, f.datei)).catch(() => {});
+    files.set(t.id, { datei, hash });
+  }
+  await writeAtomic(path.join(TIMELINES, ORDER_FILE), JSON.stringify({
+    activeId: typeof d.activeId === 'string' ? d.activeId : '',
+    reihenfolge: list.map((t) => t.id),
+  }));
+}
 
 async function saveBackup(req, res) {
   const text = await readBody(req, MAX_BACKUP);
+  let d;
   try {
-    const d = JSON.parse(text);
+    d = JSON.parse(text);
     if (!d || !Array.isArray(d.timelines)) throw new Error();
   } catch (e) {
     return sendJson(res, 400, { fehler: 'Ungültige Sicherung.' });
   }
-  await fsp.mkdir(DATA, { recursive: true });
-  await keepDailyCopy();
-  await writeAtomic(BACKUP, text);
-  sendJson(res, 200, { ok: true });
+  const job = backupQueue.then(() => writeTimelines(d));
+  backupQueue = job.catch(() => {});
+  try {
+    await job;
+    sendJson(res, 200, { ok: true });
+  } catch (e) {
+    console.error(`${time()}  Speichern der Zeitstrahlen fehlgeschlagen: ${e.message}`);
+    sendJson(res, 500, { fehler: 'Speichern auf dem Laptop hat nicht geklappt.' });
+  }
 }
 
 // Lokales Datum als 2026-10-04
@@ -396,32 +588,23 @@ function dayName(d) {
 }
 
 // Vor der ersten Änderung eines Tages wird der bisherige Stand als Tageskopie
-// abgelegt. So lässt sich ein versehentlich gelöschter Zeitstrahl noch am selben
-// Tag aus der Kopie zurückholen (Datei → Öffnen).
+// abgelegt (daten/sicherungen/2026-10-04/). So lässt sich ein versehentlich
+// gelöschter oder verändertter Zeitstrahl zurückholen (Datei → Öffnen).
 async function keepDailyCopy() {
-  const target = path.join(BACKUP_DAYS, dayName(new Date()) + '.json');
+  const target = path.join(BACKUP_DAYS, dayName(new Date()));
+  if (fs.existsSync(target) || fs.existsSync(target + '.json')) return; // heute schon gesichert
+  let names = [];
   try {
-    await fsp.access(target);
-    return; // heute schon gesichert
-  } catch (e) { /* noch keine Kopie von heute */ }
+    names = (await fsp.readdir(TIMELINES)).filter((f) => f.endsWith('.json') && f !== ORDER_FILE);
+  } catch (e) { /* noch nichts gespeichert */ }
+  if (!names.length) return;
+  await fsp.mkdir(target, { recursive: true });
+  for (const f of names) await fsp.copyFile(path.join(TIMELINES, f), path.join(target, f));
   try {
-    await fsp.mkdir(BACKUP_DAYS, { recursive: true });
-    await fsp.copyFile(BACKUP, target);
-  } catch (e) {
-    return; // noch keine Sicherung vorhanden
-  }
-  try {
-    const old = (await fsp.readdir(BACKUP_DAYS)).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).sort().reverse().slice(KEEP_DAYS);
-    for (const f of old) await fsp.unlink(path.join(BACKUP_DAYS, f));
+    // Ordner und ältere Tageskopien als einzelne .json-Datei
+    const old = (await fsp.readdir(BACKUP_DAYS)).filter((f) => /^\d{4}-\d\d-\d\d(\.json)?$/.test(f)).sort().reverse().slice(KEEP_DAYS);
+    for (const f of old) await fsp.rm(path.join(BACKUP_DAYS, f), { recursive: true, force: true });
   } catch (e) { /* Aufräumen klappt beim nächsten Mal */ }
-}
-
-async function loadBackup(res) {
-  try {
-    send(res, 200, await fsp.readFile(BACKUP, 'utf8'), 'application/json; charset=utf-8');
-  } catch (e) {
-    sendJson(res, 200, { leer: true }); // noch keine Sicherung vorhanden
-  }
 }
 
 /* ---------- Anfragen verteilen ---------- */
@@ -484,6 +667,7 @@ server.on('error', (err) => {
 });
 
 loadIndex();
+loadTimelines();
 server.listen(PORT, '0.0.0.0', () => {
   const local = `http://${withPort('localhost')}`;
   const lan = lanAddresses();
