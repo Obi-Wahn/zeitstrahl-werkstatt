@@ -15,6 +15,7 @@
 
   const DRAFT_KEY = 'zeitstrahl-schueler-v2';
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
+  const STUDENT_THEME_KEY = 'zeitstrahl-schueler-farben';
   const AUTOSAVE_MS = 15000;
   const NOW = new Date();
   const FAM = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif';
@@ -39,11 +40,26 @@
 
   const dirty = () => work.rev !== work.savedRev;
 
-  // Farbwahl der Lehrkraft-Ansicht übernehmen, falls auf demselben Gerät gesetzt
+  /* ---------- Farben ---------- */
+
+  // Eigene Wahl der Schüler zählt zuerst, sonst die der Lehrkraft-Ansicht auf demselben Gerät,
+  // sonst die Einstellung des Geräts
+  const THEMES = { system: 'Farben: automatisch', light: 'Farben: hell', dark: 'Farben: Tafel' };
+  let theme = 'system';
+  const shownTheme = () => (theme !== 'system' ? theme
+    : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  function applyTheme(t, save) {
+    theme = THEMES[t] ? t : 'system';
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    const b = $('btn-theme');
+    b.setAttribute('aria-label', THEMES[theme]);
+    b.title = THEMES[theme] + ' (zum Umschalten klicken)';
+    if (save) { try { localStorage.setItem(STUDENT_THEME_KEY, theme); } catch (e) { /* egal */ } }
+  }
   try {
-    const t = localStorage.getItem(THEME_KEY);
-    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-  } catch (e) { /* egal */ }
+    applyTheme(localStorage.getItem(STUDENT_THEME_KEY) || localStorage.getItem(THEME_KEY) || 'system', false);
+  } catch (e) { applyTheme('system', false); }
 
   /* ---------- Auf diesem Gerät zwischenspeichern ---------- */
 
@@ -635,6 +651,8 @@
   });
   $('resume').addEventListener('submit', loadCode);
   $('btn-new').addEventListener('click', startNew);
+  // Immer ins Gegenteil des Sichtbaren, wie in der Lehrkraft-Ansicht
+  $('btn-theme').addEventListener('click', () => applyTheme(shownTheme() === 'dark' ? 'light' : 'dark', true));
   window.addEventListener('pagehide', saveLocal);
 
   new ResizeObserver(() => renderPreview()).observe($('preview'));
