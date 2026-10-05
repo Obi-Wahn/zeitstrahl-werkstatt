@@ -1502,71 +1502,10 @@
     toast(state.timelines.length === 1 ? 'Der Zeitstrahl wurde als ZIP-Datei gesichert.' : `Alle ${state.timelines.length} Zeitstrahlen als ZIP-Datei gesichert.`);
   }
 
-  function exportSvg(blank) {
-    const items = visibleItems();
-    const W = 1600;
-    const pad = 28;
-    const s = 1.1;
-    const g = Layout.layout(items, view, W - pad * 2, { scale: s, family: FAM_EXPORT, measure, blank });
-    const headH = 70;
-    const P = EXPORT_PAINT;
-    let lx = pad;
-    let ly = headH + g.H + 26;
-    const legend = [];
-    for (const c of parsed.cats) {
-      if (hiddenCats.has(c.key)) continue;
-      const tw = measure(c.name, 400, 15, FAM_EXPORT);
-      if (lx + 22 + tw > W - pad) { lx = pad; ly += 26; }
-      legend.push(`<rect x="${lx}" y="${ly - 11}" width="13" height="13" rx="2" style="fill:${P.cat(c.ci)}"/>`
-        + `<text x="${lx + 20}" y="${ly}" style="font-size:15px;fill:${P.soft}">${Layout.esc(c.name)}</text>`);
-      lx += 20 + tw + 26;
-    }
-    const H = Math.ceil(ly + 22);
-    const markup = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="${H * 2}" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
-      + `<rect width="${W}" height="${H}" style="fill:#FFFFFF"/>`
-      + `<text x="${pad}" y="44" style="font-size:28px;font-weight:700;fill:${P.ink}">${Layout.esc(displayName(activeTl()))}</text>`
-      + (blank ? `<text x="${W - pad}" y="44" text-anchor="end" style="font-size:16px;fill:${P.soft}">Name: ______________________</text>` : '')
-      + `<g transform="translate(${pad} ${headH})">${Layout.svgBody(g, P, { selectedId: null, interactive: false, blank })}</g>`
-      + legend.join('')
-      + '</svg>';
-    return { markup, w: W * 2, h: H * 2 };
-  }
-
-  function exportPng(blank) {
-    if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
-    const { markup, w, h } = exportSvg(blank);
-    const name = slug(activeTl().name) + (blank ? '-lueckenbild' : '');
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      try {
-        c.toBlob((blob) => {
-          if (blob) {
-            download(name + '.png', blob);
-            toast(blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
-          } else {
-            download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
-          }
-        }, 'image/png');
-      } catch (e) {
-        // Manche Browser sperren das Umwandeln: dann als SVG sichern (lässt sich ebenso drucken)
-        download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
-        toast('Als SVG-Bild gesichert.');
-      }
-    };
-    img.onerror = () => toast('Das Bild konnte nicht erzeugt werden.');
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
-  }
-
-  // Direkt drucken: dasselbe Bild wie beim Sichern, nur gleich auf dem Papier.
-  // Querformat und Seitenrand kommen aus dem Druck-Stil in css/style.css.
-  // Druckseite im Format A4 quer (273 × 186 mm Innenfläche): Kopf mit Titel und Rahmen,
-  // Fußzeile mit Kategorien. Der Zeitstrahl wird so groß wie möglich gesetzt und füllt die Seite.
-  function printSvg(blank) {
+  // Seite im Format A4 quer (273 × 186 mm Innenfläche) für Bild und Druck: Kopf mit Titel
+  // und Rahmen, Fußzeile mit Kategorien. Der Zeitstrahl wird so groß wie möglich gesetzt.
+  // Das Bild entsteht in doppelter Auflösung, damit es auch gedruckt scharf bleibt.
+  function pageSvg(blank) {
     const items = visibleItems();
     const W = 1400;
     const H = Math.round(W * 186 / 273);
@@ -1614,7 +1553,7 @@
       ? `<text x="${W - pad}" y="58" text-anchor="end" style="font-size:16px;fill:${P.soft}">Name: ____________________</text>`
         + `<text x="${W - pad}" y="92" text-anchor="end" style="font-size:16px;fill:${P.soft}">Datum: _____________</text>`
       : '';
-    const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="${H * 2}" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
       + `<rect width="${W}" height="${H}" style="fill:#FFFFFF"/>`
       + `<text x="${pad}" y="62" style="font-size:34px;font-weight:700;fill:${P.ink}">${esc(displayName(activeTl()))}</text>`
       + `<text x="${pad}" y="94" style="font-size:16px;fill:${P.soft}">${esc(blank ? 'Ergänze die fehlenden Ereignisse.' : sub)}</text>`
@@ -1625,12 +1564,44 @@
       + legend.join('')
       + `<text x="${W - pad}" y="${H - 39}" text-anchor="end" style="font-size:13px;fill:${P.soft}">Zeitstrahl-Werkstatt · ${esc(day)}</text>`
       + '</svg>';
-    return markup;
+    return { markup, w: W * 2, h: H * 2 };
   }
 
+  function exportPng(blank) {
+    if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
+    const { markup, w, h } = pageSvg(blank);
+    const name = slug(activeTl().name) + (blank ? '-lueckenbild' : '');
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        c.toBlob((blob) => {
+          if (blob) {
+            download(name + '.png', blob);
+            toast(blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
+          } else {
+            download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
+          }
+        }, 'image/png');
+      } catch (e) {
+        // Manche Browser sperren das Umwandeln: dann als SVG sichern (lässt sich ebenso drucken)
+        download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
+        toast('Als SVG-Bild gesichert.');
+      }
+    };
+    img.onerror = () => toast('Das Bild konnte nicht erzeugt werden.');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+  }
+
+  // Direkt drucken: dieselbe Seite wie beim Sichern als Bild, nur gleich auf dem Papier.
+  // Querformat und Seitenrand kommen aus dem Druck-Stil in css/style.css.
   function printTimeline(blank) {
     if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
-    const markup = printSvg(blank);
+    const { markup } = pageSvg(blank);
     const area = $('print-area');
     area.innerHTML = markup;
     document.body.classList.add('printing');
