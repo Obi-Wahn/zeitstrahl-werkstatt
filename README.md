@@ -4,6 +4,8 @@ Interaktive Zeitstrahlen für Geschichte und Religion. Die Lehrkraft pflegt eige
 
 Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Konten, alle Daten bleiben auf dem Laptop.
 
+![Lehrkraft-Ansicht mit dem Beispiel „Erster Weltkrieg“: oben der Zeitstrahl mit Ereignissen und Zeiträumen, unten der Editor und die Hilfe zur Schreibweise](docs/bilder/lehrkraft.png)
+
 ## Einrichten (einmalig)
 
 1. **Node.js installieren:** Von https://nodejs.org die Version „LTS“ herunterladen und installieren. Das Programm ist kostenlos, weitere Pakete braucht die Werkstatt nicht.
@@ -28,12 +30,18 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 2. **Thema vorgeben:** Auf **iPads verbinden** klicken, das Thema eintragen (z. B. „Reformation“), auf Wunsch einen kurzen Arbeitsauftrag, und **Thema festlegen** klicken. Darunter erscheint ein großer QR-Code für den Beamer.
 3. **iPads verbinden:** Die Schülerinnen und Schüler scannen den QR-Code mit der Kamera-App und landen auf der Schülerseite. Dort stehen schon das Thema und der Arbeitsauftrag.
 4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
+
+   <img src="docs/bilder/ipads-verbinden.png" width="58%" alt="Dialog „Thema vorgeben und iPads verbinden“ mit Thema, Arbeitsauftrag und großem QR-Code"> <img src="docs/bilder/schuelerseite.png" width="38%" alt="Schülerseite auf dem iPad: Thema, Arbeitsauftrag, Vornamen der Gruppe und der eigene Zeitstrahl">
+
 5. **Zwischenspeichern:** Beim ersten **Zwischenspeichern** bekommt die Gruppe einen **Code** aus fünf Zeichen (z. B. `K7M2X`), den sie aufschreibt. Danach speichert die Seite alle 15 Sekunden automatisch. In der nächsten Stunde, auch auf einem anderen iPad, tippt die Gruppe den Code unter „Mit eurem Code weiterarbeiten“ ein und macht weiter.
 6. **Abgeben:** Ist der Zeitstrahl fertig, tippt die Gruppe auf **Fertig – abgeben**. Verbessern und erneut abgeben geht jederzeit. Fällt das WLAN aus, sagt die Seite das deutlich; die Eingaben bleiben auf dem iPad und werden gespeichert, sobald die Verbindung wieder da ist. Eine Rückmeldung der Lehrkraft erscheint oben auf der Seite.
 7. **Abgabe beenden:** Vor dem Präsentieren unter **iPads verbinden** auf **Abgabe beenden** klicken. Dann kann keine Gruppe mehr speichern, und auf den iPads steht, dass die Abgabe beendet ist. **Bearbeiten wieder erlauben** hebt das auf.
 8. **Rückmeldung geben:** In der Übersicht **Schüler-Zeitstrahlen** hat jede Gruppe einen Knopf **Rückmeldung**. Der Text erscheint auf dem iPad der Gruppe, sobald sie mit ihrem Code arbeitet, spätestens nach wenigen Sekunden.
 9. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen** die Abgaben mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“. Ist ein Schüler-Zeitstrahl ausgewählt, zeigt die rechte Spalte das Thema, den Arbeitsauftrag und alle Gruppen dazu, per Klick wechselt man zur nächsten Gruppe.
 10. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl. **Was kam zuerst?** mischt die Ereignisse des gezeigten Zeitstrahls; die Klasse bringt sie an der Tafel in die richtige Reihenfolge, **Prüfen** zeigt, was schon stimmt.
+
+    ![Tafelbild am Beamer in den Tafel-Farben, unten die Knöpfe zum schrittweisen Aufdecken und für die Übung „Was kam zuerst?“](docs/bilder/tafelbild.png)
+
 11. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
 12. **Beenden:** Das Server-Fenster schließen.
 
@@ -107,6 +115,10 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgabe beenden, je Gruppe eine Rückmeldung schreiben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
 | Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich je Zeitstrahl als Datei in `daten/zeitstrahlen/` mit Tageskopien. Alle sichern als ZIP. Einlesen von .txt, .json, .csv und .zip. |
 
+Fürs Arbeitsblatt: links das gesicherte Bild, rechts das Lückenbild. Gedruckt sehen beide genauso aus.
+
+<img src="docs/bilder/arbeitsblatt.png" width="49%" alt="Gesichertes Bild des Zeitstrahls mit Titel, Rahmen, Kategorien und Datum"> <img src="docs/bilder/lueckenbild.png" width="49%" alt="Lückenbild: nur die Daten, daneben Leerzeilen zum Ausfüllen, oben Name und Datum">
+
 ## Schreibweise der Einträge
 
 Eine Zeile pro Eintrag:
@@ -168,6 +180,7 @@ js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
+docs/bilder/         Bilder für diese Beschreibung
 tests/               Tests für Parser, Layout, ZIP und Server, alle zusammen: npm test
 ```
 
