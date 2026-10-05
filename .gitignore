@@ -1,2 +1,5 @@
 # Beiträge und Sicherungen bleiben auf dem Laptop und gehören nicht ins Repository
 daten/
+
+# Port und Passwort-Hash: legt der Server beim ersten Start an
+einstellungen.txt

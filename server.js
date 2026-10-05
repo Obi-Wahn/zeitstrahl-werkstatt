@@ -12,7 +12,8 @@
  *         node server.js --passwort   Passwort für andere Geräte festlegen oder ändern
  *   iPads:      http://<IP des Laptops>:8080   öffnet die Schülerseite
  *
- * Der Port steht in einstellungen.txt (Zeile „port = 8080“).
+ * Port und Passwort stehen in einstellungen.txt. Die Datei legt der Server beim
+ * ersten Start an, sie gehört nicht ins Repository.
  *
  * Ablauf: Die Lehrkraft gibt ein Thema vor (daten/aufgabe.json). Schülerinnen
  * und Schüler bauen dazu auf dem iPad je einen eigenen Zeitstrahl und speichern
@@ -22,7 +23,7 @@
  * Beim ersten Start fragt das Server-Fenster nach einem Passwort. Mit ihm kommt die
  * Lehrkraft auch von einem anderen Gerät im Netz in die Lehrkraft-Ansicht, z. B. vom
  * Lehrer-PC am Beamer oder wenn der Server ohne Bildschirm läuft. Gespeichert wird
- * nur ein Hash in daten/zugang.json.
+ * nur ein Hash in einstellungen.txt.
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -46,12 +47,47 @@ const ORDER_FILE = '_reihenfolge.json';    // Reihenfolge und zuletzt gezeigter 
 const OLD_BACKUP = path.join(DATA, 'sicherung.json'); // frühere Sicherung in einer Datei
 const BACKUP_DAYS = path.join(DATA, 'sicherungen');
 const KEEP_DAYS = 14;                    // so viele Tagessicherungen bleiben liegen
-const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt');
-const ACCESS_FILE = path.join(DATA, 'zugang.json'); // Hash des Passworts für andere Geräte
+const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt'); // Port und Passwort-Hash
 
 const args = process.argv.slice(2);
 const OPEN_BROWSER = !args.includes('--kein-browser');
 const ASK_PASSWORD = args.includes('--passwort');
+
+// So sieht einstellungen.txt beim ersten Start aus. Die Zeile „passwort“
+// ergänzt der Server, sobald das Passwort festgelegt ist.
+const SETTINGS_TEMPLATE = `# Einstellungen für den Klassenserver der Zeitstrahl-Werkstatt
+# Nach einer Änderung das Server-Fenster schließen und neu starten.
+
+# Port, unter dem die Werkstatt erreichbar ist.
+# Üblich sind Werte ab 1024, z. B. 8080 oder 8090.
+# Die iPads öffnen dann z. B. 192.168.178.23:8080
+port = 8080
+
+# Passwort für die Lehrkraft-Ansicht an anderen Geräten, z. B. am Lehrer-PC.
+# Hier steht nur ein Hash, nicht das Passwort selbst. „aus“ heißt: nur an diesem Laptop.
+# Festlegen oder ändern: node server.js --passwort
+`;
+
+function ensureSettingsFile() {
+  if (fs.existsSync(SETTINGS_FILE)) return;
+  try {
+    fs.writeFileSync(SETTINGS_FILE, SETTINGS_TEMPLATE);
+  } catch (e) {
+    console.error(`einstellungen.txt ließ sich nicht anlegen: ${e.message}`);
+  }
+}
+
+// Eine Einstellung setzen. Andere Zeilen und Kommentare bleiben, wie sie sind.
+function writeSetting(key, value) {
+  let text = SETTINGS_TEMPLATE;
+  try {
+    text = fs.readFileSync(SETTINGS_FILE, 'utf8').replace(/^\uFEFF/, '');
+  } catch (e) { /* Vorlage nehmen */ }
+  const line = `${key} = ${value}`;
+  const rx = new RegExp(`^\\s*${key}\\s*[=:].*$`, 'im');
+  text = rx.test(text) ? text.replace(rx, line) : text.replace(/\s*$/, '\n') + line + '\n';
+  fs.writeFileSync(SETTINGS_FILE, text);
+}
 
 // einstellungen.txt lesen: Zeilen wie „port = 8080“, # leitet Kommentare ein
 function readSettings() {
@@ -68,6 +104,8 @@ function readSettings() {
   }
   return out;
 }
+
+ensureSettingsFile();
 
 // Vorrang: Startparameter (node server.js 9000) > Umgebungsvariable PORT > einstellungen.txt > 8080
 function choosePort() {
@@ -154,20 +192,13 @@ function hasSession(req) {
   return true;
 }
 
-// Inhalt von daten/zugang.json: { salt, hash } oder { aus: true }, wenn beim
-// ersten Start bewusst kein Passwort gewählt wurde. null: Datei fehlt.
-function readAccessFile() {
-  try {
-    const d = JSON.parse(fs.readFileSync(ACCESS_FILE, 'utf8'));
-    return d && typeof d === 'object' ? d : null;
-  } catch (e) {
-    return null;
-  }
-}
+// Zeile „passwort“ in einstellungen.txt: „scrypt:<salt>:<hash>“, oder „aus“, wenn
+// beim ersten Start bewusst kein Passwort gewählt wurde. Fehlt sie, fragt der Start.
+const passwordDecided = () => 'passwort' in readSettings();
 
 function readAccess() {
-  const d = readAccessFile();
-  return d && typeof d.salt === 'string' && typeof d.hash === 'string' ? d : null;
+  const m = /^scrypt:([0-9a-f]{32}):([0-9a-f]{64})$/.exec(readSettings().passwort || '');
+  return m ? { salt: m[1], hash: m[2] } : null;
 }
 
 const hashPassword = (pw, salt) => crypto.scryptSync(String(pw).normalize('NFC'), salt, 32).toString('hex');
@@ -879,9 +910,9 @@ async function askPassword(firstStart) {
   }
   for (;;) {
     const pw = await askHidden('  Passwort: ');
-    let file;
+    let value;
     if (!pw) {
-      file = { aus: true };
+      value = 'aus';
       console.log('  Kein Passwort. Die Lehrkraft-Ansicht geht nur an diesem Laptop.');
     } else if ([...pw].length < MIN_PASSWORD) {
       console.log(`  Das Passwort braucht mindestens ${MIN_PASSWORD} Zeichen.\n`);
@@ -891,18 +922,17 @@ async function askPassword(firstStart) {
       continue;
     } else {
       const salt = crypto.randomBytes(16).toString('hex');
-      file = { salt, hash: hashPassword(pw, salt) };
-      console.log('  Passwort gespeichert (nur als Hash in daten/zugang.json).');
+      value = `scrypt:${salt}:${hashPassword(pw, salt)}`;
+      console.log('  Passwort gespeichert (nur als Hash in einstellungen.txt).');
     }
-    fs.mkdirSync(DATA, { recursive: true });
-    fs.writeFileSync(ACCESS_FILE, JSON.stringify({ ...file, geaendert: new Date().toISOString() }));
+    writeSetting('passwort', value);
     return;
   }
 }
 
 // Beim ersten Start oder mit --passwort fragen. Ohne Konsole (z. B. als Dienst) geht das nicht.
 async function ensurePassword() {
-  const firstStart = !readAccessFile();
+  const firstStart = !passwordDecided();
   if (!ASK_PASSWORD && !firstStart) return;
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     if (ASK_PASSWORD) {

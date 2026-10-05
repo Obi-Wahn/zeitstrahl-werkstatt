@@ -63,13 +63,13 @@ Nach einem Neustart des Servers oder nach zwölf Stunden meldet man sich am Lehr
 
 ### Port ändern
 
-Die Werkstatt nutzt standardmäßig Port **8080**. Ist er belegt oder soll ein anderer genutzt werden, in der Datei `einstellungen.txt` die Zeile ändern, z. B.:
+Die Werkstatt nutzt standardmäßig Port **8080**. Ist er belegt oder soll ein anderer genutzt werden, in der Datei `einstellungen.txt` im Werkstatt-Ordner die Zeile ändern, z. B.:
 
 ```
 port = 8090
 ```
 
-Danach das Server-Fenster schließen und neu starten. Die neue Adresse steht im Server-Fenster und im QR-Code. Für einen einzelnen Start geht es auch ohne die Datei: `node server.js 8090`.
+Danach das Server-Fenster schließen und neu starten. Die neue Adresse steht im Server-Fenster und im QR-Code. `einstellungen.txt` legt der Server beim ersten Start mit Erklärungen an. Darin steht auch das Passwort für den Lehrer-PC, nur als Hash. Die Datei ist nicht im Repository, ein Update überschreibt sie also nie. Für einen einzelnen Start geht es auch ohne die Datei: `node server.js 8090`.
 
 Bei Port **80** brauchen die iPads gar keine Portnummer (`192.168.178.23` genügt). Auf Mac und Linux braucht Port 80 allerdings Administratorrechte.
 
@@ -139,19 +139,18 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
   - `archiv/`: gelöschte Abgaben
   - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`
   - `sicherungen/`: je Tag eine Kopie davon, die letzten 14
-  - `zugang.json`: der Hash des Passworts für den Lehrer-PC, oder der Vermerk, dass beim ersten Start keins gewählt wurde. Wird die Datei gelöscht, fragt der nächste Start erneut.
 
   Nach Abschluss einer Unterrichtseinheit können `abgaben/` und `archiv/` gelöscht werden.
 - **Nur Vornamen:** Die Schülerseite fragt ausschließlich nach Vornamen.
-- **Getrennte Zugänge:** Lehrkraft-Ansicht, Übersicht der Abgaben und Sicherung sind nur am Laptop selbst erreichbar (`localhost`), an anderen Geräten nur nach Anmeldung mit dem Passwort. Gespeichert wird davon nur ein Hash in `daten/zugang.json`, falsche Passwörter werden nach zehn Versuchen pro Minute gesperrt. Festlegen oder ändern lässt es sich nur im Server-Fenster mit `node server.js --passwort`. Die Verbindung im Schulnetz ist nicht verschlüsselt (http). Deshalb ein Passwort wählen, das sonst nirgends benutzt wird. Die iPads sehen ausschließlich die Schülerseite. Eine Gruppe kann nur den eigenen Zeitstrahl laden und ändern, und nur mit ihrem Code. Falsch eingegebene Codes werden nach zehn Versuchen pro Minute gesperrt.
+- **Getrennte Zugänge:** Lehrkraft-Ansicht, Übersicht der Abgaben und Sicherung sind nur am Laptop selbst erreichbar (`localhost`), an anderen Geräten nur nach Anmeldung mit dem Passwort. Gespeichert wird davon nur ein Hash in `einstellungen.txt`, falsche Passwörter werden nach zehn Versuchen pro Minute gesperrt. Festlegen oder ändern lässt es sich nur im Server-Fenster mit `node server.js --passwort`. Die Verbindung im Schulnetz ist nicht verschlüsselt (http). Deshalb ein Passwort wählen, das sonst nirgends benutzt wird. Die iPads sehen ausschließlich die Schülerseite. Eine Gruppe kann nur den eigenen Zeitstrahl laden und ändern, und nur mit ihrem Code. Falsch eingegebene Codes werden nach zehn Versuchen pro Minute gesperrt.
 - **Keine externen Verbindungen:** Die Schriften liegen im Ordner `fonts/`, es wird nichts aus dem Internet geladen.
-- **Nicht ins Repository:** Der Ordner `daten/` ist in `.gitignore` eingetragen und landet nie auf GitHub.
+- **Nicht ins Repository:** Der Ordner `daten/` und `einstellungen.txt` sind in `.gitignore` eingetragen und landen nie auf GitHub.
 
 ## Aufbau (auch für den Informatikunterricht)
 
 ```
 server.js            Klassenserver (Node.js, ohne Zusatzpakete)
-einstellungen.txt    Port des Servers
+einstellungen.txt    Port und Passwort-Hash, legt der Server beim ersten Start an (nicht im Repository)
 index.html           Lehrkraft-Ansicht
 beitrag.html         Schülerseite
 anmelden.html        Anmeldung für die Lehrkraft-Ansicht an einem anderen Gerät
