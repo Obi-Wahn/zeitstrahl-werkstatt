@@ -35,6 +35,24 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 9. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
 10. **Beenden:** Das Server-Fenster schließen.
 
+### Tafelbild am Lehrer-PC, wenn der Laptop nicht am Beamer hängt
+
+Hängt nur der Lehrer-PC am Beamer oder Smartboard, öffnet man dort dieselbe Lehrkraft-Ansicht wie am Laptop. Der Server läuft weiter auf dem Laptop, beide Geräte müssen im selben Netz sein.
+
+1. **Passwort festlegen:** Beim ersten Start fragt das Server-Fenster nach einem Passwort (mindestens 6 Zeichen, zweimal eingeben, die Eingabe bleibt unsichtbar). Nur Enter heißt: kein Passwort, die Lehrkraft-Ansicht geht dann nur am Laptop. Festlegen, ändern oder entfernen geht jederzeit mit
+
+   ```
+   node server.js --passwort
+   ```
+
+   Das klappt auch per SSH auf einem Server ohne Bildschirm, z. B. `node server.js --passwort --kein-browser`.
+2. **Am Lehrer-PC:** Im Browser die Adresse eingeben, z. B. `http://192.168.178.23:8080/lehrkraft`, und mit dem Passwort anmelden. Die Adresse steht im Server-Fenster und am Laptop unter **Datei → Am Lehrer-PC öffnen …**.
+3. Dort geht alles wie am Laptop: Tafelbild, iPads verbinden mit QR-Code, Thema vorgeben, Schüler-Zeitstrahlen, Bearbeiten. Zum Schluss oben auf **Abmelden** klicken.
+
+Gespeichert wird immer auf dem Laptop im Ordner `daten`, auf dem Lehrer-PC bleibt nichts liegen. Änderungen an einem Gerät erscheinen nach wenigen Sekunden auf dem anderen. Ändern beide gleichzeitig, gilt die zuerst gespeicherte Änderung, und das andere Gerät sagt Bescheid.
+
+Nach einem Neustart des Servers oder nach zwölf Stunden meldet man sich am Lehrer-PC neu an. Läuft der Server ohne Konsole, etwa als Dienst, fragt er nicht nach dem Passwort. Dann einmal im Terminal `node server.js --passwort` ausführen.
+
 ### Wenn die iPads die Seite nicht erreichen
 
 - Laptop und iPads müssen im **selben WLAN** sein.
@@ -121,10 +139,11 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
   - `archiv/`: gelöschte Abgaben
   - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`
   - `sicherungen/`: je Tag eine Kopie davon, die letzten 14
+  - `zugang.json`: der Hash des Passworts für den Lehrer-PC, oder der Vermerk, dass beim ersten Start keins gewählt wurde. Wird die Datei gelöscht, fragt der nächste Start erneut.
 
   Nach Abschluss einer Unterrichtseinheit können `abgaben/` und `archiv/` gelöscht werden.
 - **Nur Vornamen:** Die Schülerseite fragt ausschließlich nach Vornamen.
-- **Getrennte Zugänge:** Lehrkraft-Ansicht, Übersicht der Abgaben und Sicherung sind nur am Laptop selbst erreichbar (`localhost`). Die iPads sehen ausschließlich die Schülerseite. Eine Gruppe kann nur den eigenen Zeitstrahl laden und ändern, und nur mit ihrem Code. Falsch eingegebene Codes werden nach zehn Versuchen pro Minute gesperrt.
+- **Getrennte Zugänge:** Lehrkraft-Ansicht, Übersicht der Abgaben und Sicherung sind nur am Laptop selbst erreichbar (`localhost`), an anderen Geräten nur nach Anmeldung mit dem Passwort. Gespeichert wird davon nur ein Hash in `daten/zugang.json`, falsche Passwörter werden nach zehn Versuchen pro Minute gesperrt. Festlegen oder ändern lässt es sich nur im Server-Fenster mit `node server.js --passwort`. Die Verbindung im Schulnetz ist nicht verschlüsselt (http). Deshalb ein Passwort wählen, das sonst nirgends benutzt wird. Die iPads sehen ausschließlich die Schülerseite. Eine Gruppe kann nur den eigenen Zeitstrahl laden und ändern, und nur mit ihrem Code. Falsch eingegebene Codes werden nach zehn Versuchen pro Minute gesperrt.
 - **Keine externen Verbindungen:** Die Schriften liegen im Ordner `fonts/`, es wird nichts aus dem Internet geladen.
 - **Nicht ins Repository:** Der Ordner `daten/` ist in `.gitignore` eingetragen und landet nie auf GitHub.
 
@@ -135,6 +154,7 @@ server.js            Klassenserver (Node.js, ohne Zusatzpakete)
 einstellungen.txt    Port des Servers
 index.html           Lehrkraft-Ansicht
 beitrag.html         Schülerseite
+anmelden.html        Anmeldung für die Lehrkraft-Ansicht an einem anderen Gerät
 css/                 Gestaltung, lokale Schriften
 fonts/               Alegreya, Atkinson Hyperlegible, IBM Plex Mono (SIL Open Font License)
 js/parser.js         Text → Einträge: Datumsformate, v. Chr., Zeiträume, Kategorien, Tabellen (.csv)

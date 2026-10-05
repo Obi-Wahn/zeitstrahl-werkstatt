@@ -49,6 +49,9 @@
   const validImage = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(s);
   const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // Lehrkraft-Ansicht an einem anderen Gerät (Lehrer-PC), angemeldet mit Passwort.
+  // Dort bleibt nichts im Browser liegen, alles kommt vom Laptop und geht dorthin zurück.
+  const REMOTE = /^\/lehrkraft\/?$/.test(location.pathname);
 
   /* ---------- Textbreiten messen ---------- */
 
@@ -139,8 +142,26 @@
   }
   const onlySamples = (d) => d.timelines.every(isPlainSample);
 
+  // Mit Server gilt der Stand im Ordner daten auf dem Laptop, denn dort kann auch
+  // ein anderes Gerät (Lehrer-PC) etwas geändert haben
+  async function loadFromServer() {
+    try {
+      const res = await fetch('api/sicherung', { headers: API_HEADERS, cache: 'no-store' });
+      if (!res.ok) return null;
+      const d = await res.json();
+      server.stand = typeof d.stand === 'string' ? d.stand : null;
+      return normalize(d);
+    } catch (e) {
+      return null; // keine Sicherung
+    }
+  }
+
   // Liefert den gespeicherten Stand und ob er nur aus unveränderten Beispielen bestand
   async function loadSaved() {
+    if (server.on) {
+      const d = await loadFromServer();
+      if (d || REMOTE) return d;
+    }
     try {
       const d = normalize(await dbGet(DB_KEY));
       if (d) return d;
@@ -151,30 +172,24 @@
       const d = normalize(JSON.parse(localStorage.getItem(LS_KEY) || 'null'));
       if (d) return d;
     } catch (e) { /* nichts gespeichert */ }
-    if (server.on) {
-      try {
-        const res = await fetch('api/sicherung', { headers: API_HEADERS, cache: 'no-store' });
-        const d = res.ok ? normalize(await res.json()) : null;
-        if (d) return d;
-      } catch (e) { /* keine Sicherung */ }
-    }
     return null;
   }
   async function loadState() {
     const d = await loadSaved();
     if (!d) return { state: freshState(), cleared: false };
-    if (onlySamples(d)) return { state: freshState(), cleared: true };
+    // Am Lehrer-PC genau das zeigen, was auf dem Laptop gerade offen ist
+    if (onlySamples(d) && !REMOTE) return { state: freshState(), cleared: true };
     return { state: d, cleared: false };
   }
 
   let storageOk = true;
   let saveTimer = 0;
-  async function persistNow() {
+  async function persistNow(fromServer) {
     clearTimeout(saveTimer);
     saveTimer = 0;
     const snapshot = { activeId: state.activeId, timelines: state.timelines };
-    let ok = false;
-    if (idbOk) {
+    let ok = REMOTE;
+    if (REMOTE) { /* nur auf dem Laptop speichern */ } else if (idbOk) {
       try { await dbPut(DB_KEY, snapshot); ok = true; } catch (e) { idbOk = false; }
     }
     if (!ok) {
@@ -182,7 +197,7 @@
     }
     storageOk = ok;
     showStatus(false);
-    scheduleBackup();
+    if (!fromServer) scheduleBackup();
   }
   function changed() {
     clearTimeout(saveTimer);
@@ -206,6 +221,7 @@
 
   // Merkt sich, seit wann es Änderungen ohne Datei-Sicherung gibt
   function markUnsaved() {
+    if (REMOTE) return;
     try { if (!localStorage.getItem(UNSAVED_KEY)) localStorage.setItem(UNSAVED_KEY, String(Date.now())); } catch (e) { /* egal */ }
     askPersist();
   }
@@ -236,18 +252,27 @@
       return;
     }
     el.textContent = pending ? 'Wird gespeichert …' : 'Gespeichert';
-    el.title = server.on ? 'In diesem Browser und auf dem Laptop im Ordner daten gespeichert' : 'In diesem Browser gespeichert';
+    el.title = REMOTE ? 'Auf dem Laptop im Ordner daten gespeichert'
+      : server.on ? 'In diesem Browser und auf dem Laptop im Ordner daten gespeichert' : 'In diesem Browser gespeichert';
     el.dataset.tone = pending ? 'pending' : 'ok';
   }
 
   /* ---------- Klassenserver (wenn die Seite über server.js läuft) ---------- */
 
   const API_HEADERS = { 'X-Zeitstrahl': 'lehrkraft' };
-  const server = { on: false, info: null, offline: false, ready: false, abgaben: [], known: new Map(), task: { thema: '', auftrag: '' } };
+  const server = {
+    on: false, info: null, offline: false, ready: false, abgaben: [], known: new Map(), task: { thema: '', auftrag: '' }, stand: null,
+  };
+
+  // Am Lehrer-PC: Nach einem Neustart des Servers oder einem neuen Passwort neu anmelden
+  function checkLogin(res) {
+    if (REMOTE && res.status === 403) location.replace('lehrkraft');
+  }
 
   async function api(pathname, opts = {}) {
     const headers = { ...API_HEADERS, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) };
     const res = await fetch(pathname, { cache: 'no-store', ...opts, headers });
+    checkLogin(res);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.fehler || 'Der Server hat die Anfrage abgelehnt.');
     return d;
@@ -304,6 +329,8 @@
       server.abgaben = list;
       server.offline = false;
       server.ready = true;
+      // Ein anderes Gerät hat die Zeitstrahlen geändert
+      if (typeof d.stand === 'string' && server.stand && d.stand !== server.stand && !syncPending()) syncFromServer();
       if (listChanged) {
         renderPicker();
         renderAbgabenList();
@@ -334,7 +361,11 @@
     $('abgaben-count').hidden = !n || server.offline;
     document.querySelectorAll('.connect-btn').forEach((c) => { c.hidden = !server.on; });
     $('link-student').hidden = server.on;
-    $('help-save').innerHTML = server.on
+    document.querySelectorAll('.zugang-only').forEach((c) => { c.hidden = !server.on || REMOTE; });
+    $('btn-logout').hidden = !REMOTE;
+    $('help-save').innerHTML = REMOTE
+      ? 'Alles wird auf dem Laptop im Ordner <code>daten</code> gespeichert. Änderungen von dort erscheinen hier nach wenigen Sekunden. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
+      : server.on
       ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/sicherung.json</code> gespeichert, dazu je Tag eine Kopie in <code>daten/sicherungen</code>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
       : 'Alles wird nur in diesem Browser gespeichert. Als Sicherung: <strong>Datei → Alle Zeitstrahlen sichern</strong>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.';
     showBackupDue();
@@ -511,18 +542,120 @@
   }
 
   let backupTimer = 0;
+  let pushing = 0;
+  let backupChain = Promise.resolve();
   function scheduleBackup() {
     if (!server.on) return;
     clearTimeout(backupTimer);
-    backupTimer = setTimeout(async () => {
-      try {
-        await fetch('api/sicherung', {
-          method: 'PUT',
-          headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ app: 'zeitstrahl-werkstatt', gesichert: new Date().toISOString(), activeId: state.activeId, timelines: state.timelines }),
-        });
-      } catch (e) { /* nächster Versuch beim nächsten Speichern */ }
+    backupTimer = setTimeout(() => {
+      backupTimer = 0;
+      pushing++;
+      // Nacheinander senden, damit jede Sendung auf dem Stand der vorigen aufbaut
+      backupChain = backupChain.then(pushBackup).finally(() => { pushing--; });
     }, 3000);
+  }
+  const syncPending = () => !!(saveTimer || backupTimer || pushing);
+
+  async function pushBackup() {
+    try {
+      const res = await fetch('api/sicherung', {
+        method: 'PUT',
+        headers: { ...API_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          app: 'zeitstrahl-werkstatt', gesichert: new Date().toISOString(), activeId: state.activeId, timelines: state.timelines,
+          ...(server.stand ? { stand: server.stand } : {}),
+        }),
+      });
+      checkLogin(res);
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && typeof d.stand === 'string') server.stand = d.stand;
+      if (res.status === 409) {
+        // Beide Geräte haben gleichzeitig geändert: Der Laptop-Ordner gilt
+        await syncFromServer(true);
+        toast('Auf dem anderen Gerät wurde gerade etwas geändert. Deine letzte Änderung ließ sich deshalb nicht speichern, hier steht jetzt der neue Stand.');
+      }
+    } catch (e) { /* nächster Versuch beim nächsten Speichern */ }
+  }
+
+  // Den Stand vom Laptop übernehmen, den gezeigten Zeitstrahl und Ausschnitt möglichst behalten
+  let syncing = false;
+  async function syncFromServer(force) {
+    if (syncing) return;
+    syncing = true;
+    try {
+      const d = await loadFromServer();
+      if (!d || (!force && syncPending())) return;
+      const before = ownTl();
+      const keepId = d.timelines.some((t) => t.id === state.activeId) ? state.activeId : d.activeId;
+      state = { activeId: keepId, timelines: d.timelines };
+      persistNow(true);
+      const now = ownTl();
+      const same = before && now.id === before.id;
+      const editing = document.activeElement && ['tl-name', 'tl-source'].includes(document.activeElement.id);
+      if (!same || !editing || now.name !== $('tl-name').value || now.source !== $('tl-source').value) loadEditor();
+      renderPicker();
+      renderTlNav();
+      if (studentView) return;
+      if (!same) {
+        hiddenCats = new Set();
+        selectedId = null;
+        selectedTitle = null;
+        reveal.n = 0;
+      }
+      reparse();
+      keepSelection();
+      renderHeading();
+      refreshLists();
+      if (same) requestRender();
+      else refit(false);
+    } finally {
+      syncing = false;
+    }
+  }
+
+  // Adresse und Passwort-Stand für den Lehrer-PC (nur am Laptop selbst).
+  // Festgelegt wird das Passwort im Server-Fenster, damit es auch ohne Bildschirm am Server geht.
+  let zugang = null;
+  function renderZugang() {
+    const z = zugang || { passwort: false, adressen: [], port: 8080 };
+    const ips = z.adressen || [];
+    const url = (ip) => `http://${z.port === 80 ? ip : `${ip}:${z.port}`}/lehrkraft`;
+    $('zugang-url').textContent = ips.length ? url(ips[0]) : '';
+    $('zugang-url').hidden = !ips.length;
+    $('zugang-none').hidden = ips.length > 0;
+    const alt = ips.slice(1).map(url);
+    $('zugang-alt').textContent = alt.length ? 'Falls es nicht klappt: ' + alt.join(' · ') : '';
+    $('zugang-alt').hidden = !alt.length;
+    const st = $('zugang-state');
+    st.textContent = z.passwort
+      ? `Passwort ist festgelegt.${z.angemeldet ? ` Angemeldete Geräte: ${z.angemeldet}.` : ''}`
+      : 'Noch kein Passwort festgelegt. Ohne Passwort kommt nur dieser Laptop in die Lehrkraft-Ansicht.';
+    st.dataset.tone = z.passwort ? 'ok' : '';
+    $('zugang-how').innerHTML = (z.passwort ? 'Ändern oder entfernen' : 'Festlegen')
+      + ': das Server-Fenster schließen und im Werkstatt-Ordner <code>node server.js --passwort</code> starten. Das Server-Fenster fragt dann nach dem Passwort.';
+  }
+
+  async function openZugang() {
+    try {
+      zugang = await api('api/zugang');
+    } catch (e) {
+      toast(e.message);
+      return;
+    }
+    renderZugang();
+    $('zugang').showModal();
+  }
+
+  async function logout() {
+    if (syncPending()) {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+      clearTimeout(backupTimer);
+      backupTimer = 0;
+      await backupChain.then(pushBackup); // Letzte Änderung noch auf den Laptop bringen
+    }
+    try { await api('api/abmelden', { method: 'POST' }); } catch (e) { /* trotzdem zur Anmeldung */ }
+    location.replace('lehrkraft?hinweis=abgemeldet');
   }
 
   // QR-Code als SVG (schwarz auf weiß, damit jede Kamera ihn liest)
@@ -1641,7 +1774,7 @@
       if (!menu.hidden && !e.target.closest('.menu')) setMenu(false);
     });
     menu.addEventListener('keydown', (e) => {
-      const items = [...menu.querySelectorAll('button')];
+      const items = [...menu.querySelectorAll('button:not([hidden])')];
       const i = items.indexOf(document.activeElement);
       if (e.key === 'Escape') { setMenu(false); fileBtn.focus(); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
@@ -1659,6 +1792,7 @@
       else if (act === 'export-png') exportPng(false);
       else if (act === 'export-png-blank') exportPng(true);
       else if (act === 'open-sample') openSamples();
+      else if (act === 'zugang') openZugang();
     });
     $('empty-sample').addEventListener('click', openSamples);
     $('samples-close').addEventListener('click', () => $('samples').close());
@@ -1691,6 +1825,8 @@
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
     $('task-form').addEventListener('submit', saveTask);
+    $('zugang-close').addEventListener('click', () => $('zugang').close());
+    $('btn-logout').addEventListener('click', logout);
     $('sp-copy').addEventListener('click', copyStudentView);
     $('sp-del').addEventListener('click', deleteStudentView);
     $('tl-prev').addEventListener('click', () => stepTimeline(-1));
@@ -1701,10 +1837,10 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         persistNow();
-        toast('In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
+        toast(REMOTE ? 'Wird auf dem Laptop gespeichert.' : 'In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
         return;
       }
-      if ($('abgaben').open || $('connect').open || $('import-ask').open) return;
+      if ($('abgaben').open || $('connect').open || $('zugang').open || $('import-ask').open) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
       if (present) {
