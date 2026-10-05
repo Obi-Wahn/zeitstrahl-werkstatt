@@ -10,6 +10,7 @@
   const Layout = window.ZeitstrahlLayout;
   const Bild = window.ZeitstrahlBild;
   const Zip = window.ZeitstrahlZip;
+  const Stand = window.ZeitstrahlStand;
   const SAMPLES = window.ZeitstrahlBeispiele || [];
 
   const DB_NAME = 'zeitstrahl-werkstatt';
@@ -148,21 +149,16 @@
   async function loadFromServer() {
     try {
       const res = await fetch('api/sicherung', { headers: API_HEADERS, cache: 'no-store' });
-      if (!res.ok) return null;
+      if (!res.ok) return undefined;
       const d = await res.json();
       server.stand = typeof d.stand === 'string' ? d.stand : null;
-      return normalize(d);
+      return normalize(d); // null: Ordner daten ist leer
     } catch (e) {
-      return null; // keine Sicherung
+      return undefined; // Server antwortet nicht
     }
   }
 
-  // Liefert den gespeicherten Stand und ob er nur aus unveränderten Beispielen bestand
-  async function loadSaved() {
-    if (server.on) {
-      const d = await loadFromServer();
-      if (d || REMOTE) return d;
-    }
+  async function loadBrowser() {
     try {
       const d = normalize(await dbGet(DB_KEY));
       if (d) return d;
@@ -175,8 +171,9 @@
     } catch (e) { /* nichts gespeichert */ }
     return null;
   }
+  // Liefert den gespeicherten Stand und ob er nur aus unveränderten Beispielen bestand
   async function loadState() {
-    const d = await loadSaved();
+    const d = await Stand.waehlen({ serverAn: server.on, lehrerPc: REMOTE, ladeServer: loadFromServer, ladeBrowser: loadBrowser });
     if (!d) return { state: freshState(), cleared: false };
     // Am Lehrer-PC genau das zeigen, was auf dem Laptop gerade offen ist
     if (onlySamples(d) && !REMOTE) return { state: freshState(), cleared: true };
