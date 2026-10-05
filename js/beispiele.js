@@ -129,4 +129,37 @@ März 1917; Februarrevolution in Russland; Politik; Zar Nikolaus II. dankt ab. N
 28.06.1919; Versailler Vertrag; Politik; Genau fünf Jahre nach dem Attentat von Sarajevo unterzeichnet Deutschland den Friedensvertrag. Er gibt Deutschland und seinen Verbündeten die Schuld am Krieg.
 `,
   },
+  {
+    id: 'beispiel-olympia',
+    name: 'Olympische Spiele (Beispiel)',
+    thema: 'Olympische Spiele',
+    code: 'OLYMP',
+    source: `# Datum; Titel; Kategorie; Beschreibung
+1896–heute; Olympische Spiele der Neuzeit; Epoche; Sommerspiele alle vier Jahre, seit 1924 auch Winterspiele.
+15.11.1859; Zappas-Spiele in Athen; Sport; Der griechische Kaufmann Evangelos Zappas bezahlt Wettkämpfe nach antikem Vorbild. Sie gelten als Vorläufer der modernen Spiele.
+1875–1881; Ausgrabungen in Olympia; Kultur; Deutsche Archäologen unter Ernst Curtius legen das antike Heiligtum mit Zeustempel und Stadion frei. Dort fanden von 776 v. Chr. bis um 393 n. Chr. die antiken Spiele statt.
+23.06.1894; Gründung des IOC; Politik; Auf Anregung von Pierre de Coubertin gründet sich in Paris das Internationale Olympische Komitee.
+06.04.1896–15.04.1896; Erste Spiele der Neuzeit in Athen; Sport; Rund 240 Sportler aus 14 Ländern treten an, Frauen sind noch nicht zugelassen.
+10.04.1896; Spyridon Louis gewinnt den Marathon; Personen; Der griechische Wasserträger gewinnt den ersten olympischen Marathonlauf und wird zum Nationalhelden.
+1900; Erste Olympiasiegerin; Gesellschaft; In Paris dürfen erstmals Frauen starten. Die Tennisspielerin Charlotte Cooper gewinnt als erste Frau einen olympischen Wettbewerb.
+1912; Zeitmessung mit Strom; Technik; In Stockholm werden die Zeiten erstmals elektrisch gestoppt, ein Zielfoto hilft bei knappen Einläufen.
+1920; Die Olympischen Ringe; Kultur; In Antwerpen weht zum ersten Mal die Flagge mit den fünf Ringen. Sie stehen für die fünf Erdteile.
+25.01.1924–05.02.1924; Erste Winterspiele in Chamonix; Sport; Wettkämpfe in Eiskunstlauf, Eishockey, Skilanglauf, Skispringen und Bob.
+1928; Das olympische Feuer; Kultur; In Amsterdam brennt zum ersten Mal während der Spiele ein Feuer im Stadion.
+1936; Jesse Owens; Personen; Der US-Amerikaner gewinnt in Berlin vier Goldmedaillen im Sprint und im Weitsprung.
+1948; Fanny Blankers-Koen; Personen; Die Niederländerin gewinnt in London viermal Gold. Sie ist Mutter von zwei Kindern, was damals viele für unvereinbar mit Spitzensport halten.
+10.09.1960; Barfuß zum Sieg; Personen; Abebe Bikila aus Äthiopien läuft den Marathon in Rom ohne Schuhe und gewinnt als erster Sportler aus Afrika südlich der Sahara olympisches Gold.
+18.09.1960–25.09.1960; Erste Paralympics in Rom; Gesellschaft; Rund 400 Sportlerinnen und Sportler im Rollstuhl treten an, kurz nach den Sommerspielen in derselben Stadt.
+1964; Spiele in Tokio; Technik; Zum ersten Mal finden Olympische Spiele in Asien statt. Satelliten übertragen sie live ins Fernsehen nach Amerika.
+20.10.1968; Fosbury-Flop; Sport; Dick Fosbury springt in Mexiko-Stadt rücklings über die Latte und gewinnt Gold. Heute springen fast alle so.
+18.07.1976; Die erste Zehn; Personen; Die 14-jährige Turnerin Nadia Comăneci erhält in Montreal als Erste die Höchstnote 10,0. Die Anzeigetafel kann nur 1.00 anzeigen.
+1988; Golden Slam; Personen; Steffi Graf gewinnt in Seoul Gold im Tennis und im selben Jahr alle vier großen Turniere.
+1994; Winterspiele im eigenen Rhythmus; Sport; Nach Lillehammer finden Winter- und Sommerspiele nicht mehr im selben Jahr statt, sondern abwechselnd alle zwei Jahre.
+2000; Cathy Freeman; Personen; Die Läuferin aus einer Familie der australischen Ureinwohner entzündet in Sydney das olympische Feuer und gewinnt später Gold über 400 Meter.
+2008; Michael Phelps; Personen; Der Schwimmer gewinnt in Peking acht Goldmedaillen bei einer einzigen Austragung, so viele wie niemand zuvor.
+2012; Frauen aus allen Ländern; Gesellschaft; In London schickt erstmals jedes teilnehmende Land auch Sportlerinnen.
+23.07.2021–08.08.2021; Spiele ohne Zuschauer; Gesellschaft; Wegen der Corona-Pandemie finden die Spiele von Tokio ein Jahr später statt, fast ohne Publikum.
+26.07.2024–11.08.2024; Spiele in Paris; Gesellschaft; Zum ersten Mal gibt es gleich viele Startplätze für Frauen und Männer. Die Eröffnungsfeier findet auf der Seine statt.
+`,
+  },
 ];
