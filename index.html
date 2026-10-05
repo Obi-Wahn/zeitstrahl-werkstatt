@@ -46,7 +46,7 @@
           <button type="button" role="menuitem" data-act="export-png-blank">Lückenbild fürs Arbeitsblatt (PNG)</button>
           <hr>
           <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.zip)</button>
-          <button type="button" role="menuitem" data-act="add-samples">Beispiele hinzufügen</button>
+          <button type="button" role="menuitem" data-act="open-sample">Beispiel öffnen …</button>
         </div>
         <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,.zip,text/plain,application/json,text/csv,application/zip" multiple hidden>
       </div>
@@ -74,6 +74,7 @@
         <p class="empty-title">Noch keine Einträge</p>
         <p class="empty-text">Schreib unten im Editor die erste Zeile, zum Beispiel:</p>
         <code class="empty-example">1517 | Thesenanschlag | Religion</code>
+        <p class="empty-text empty-more">oder <button type="button" class="linkbtn empty-sample" id="empty-sample">ein Beispiel öffnen</button></p>
       </div>
       <aside id="detail" class="detail" hidden>
         <button type="button" class="detail-close" id="detail-close" aria-label="Details schließen">×</button>
@@ -216,6 +217,17 @@
   <p id="connect-none" class="connect-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden. Bitte mit dem WLAN verbinden und den Dialog erneut öffnen.</p>
   <div class="review-foot">
     <button type="button" class="btn primary" id="connect-close">Schließen</button>
+  </div>
+</dialog>
+
+<dialog id="samples" class="review ask" aria-labelledby="samples-title">
+  <div class="review-head">
+    <h2 id="samples-title">Beispiel öffnen</h2>
+    <p>Das Beispiel kommt als eigener Zeitstrahl dazu. Du kannst es danach frei verändern.</p>
+  </div>
+  <ul class="samples-list" id="samples-list"></ul>
+  <div class="review-foot">
+    <button type="button" class="btn ghost" id="samples-close">Abbrechen</button>
   </div>
 </dialog>
 
