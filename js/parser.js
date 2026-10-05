@@ -267,6 +267,20 @@
     return { meta, rest: rest.trim() };
   }
 
+  // Zerlegt eine Zeile in Datum, Titel, Kategorie und Beschreibung. Trenner ist das
+  // Semikolon; ältere Zeilen mit „|“ gelten weiter. Es zählt, welches Zeichen zuerst
+  // vorkommt. Beim Semikolon trennen nur die ersten drei, weitere bleiben in der Beschreibung.
+  function splitLine(line) {
+    const semi = line.indexOf(';');
+    const bar = line.indexOf('|');
+    if (bar >= 0 && (semi < 0 || bar < semi)) {
+      const parts = line.split('|').map((p) => p.trim());
+      return parts.slice(0, 3).concat(parts.length > 3 ? [parts.slice(3).join(' | ')] : []);
+    }
+    const parts = line.split(';');
+    return parts.slice(0, 3).concat(parts.length > 3 ? [parts.slice(3).join(';')] : []).map((p) => p.trim());
+  }
+
   function parseSource(src, now) {
     const items = [];
     const problems = [];
@@ -275,9 +289,9 @@
       const raw = lines[i].trim();
       if (!raw || raw.startsWith('#')) continue;
       const { meta, rest: line } = extractMeta(raw);
-      const parts = line.split('|').map((p) => p.trim());
+      const parts = splitLine(line);
       if (parts.length < 2 || !parts[1]) {
-        problems.push({ line: i, msg: 'Titel fehlt. Schreibweise: Datum | Titel | Kategorie | Beschreibung' });
+        problems.push({ line: i, msg: 'Titel fehlt. Schreibweise: Datum; Titel; Kategorie; Beschreibung' });
         continue;
       }
       const r = parseDateField(parts[0], now);
@@ -292,7 +306,7 @@
         title: parts[1],
         cat,
         catKey: cat.toLowerCase(),
-        desc: parts.slice(3).join(' | '),
+        desc: parts[3] || '',
         kind: r.kind,
         a: r.a,
         b: r.b || null,
@@ -320,11 +334,13 @@
     return String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\|/g, '/').replace(/[{}]/g, '').replace(/\s{2,}/g, ' ').trim();
   }
 
-  // Baut eine Zeile im Zeitstrahl-Format, z. B. aus einem Schülerbeitrag
+  // Baut eine Zeile im Zeitstrahl-Format, z. B. aus einem Schülerbeitrag. In Datum, Titel
+  // und Kategorie wird ein Semikolon zum Komma, in der Beschreibung darf es stehen bleiben.
   function buildLine(e) {
-    let line = [cleanField(e.datum), cleanField(e.titel), cleanField(e.kategorie) || 'Allgemein', cleanField(e.beschreibung)]
-      .join(' | ')
-      .replace(/(\s\|\s)+$/, '');
+    const head = (s) => cleanField(s).replace(/;/g, ',');
+    const fields = [head(e.datum), head(e.titel), head(e.kategorie) || 'Allgemein', cleanField(e.beschreibung)];
+    if (!fields[3]) fields.pop();
+    let line = fields.join('; ');
     if (e.von) line += ` {von:${cleanField(e.von)}}`;
     if (e.quelle) line += ` {quelle:${cleanField(e.quelle)}}`;
     if (e.bild) line += ` {bild:${cleanField(e.bild)}}`;
@@ -397,6 +413,7 @@
 
   return {
     parseSource,
+    splitLine,
     buildLine,
     tableToSource,
     cleanField,
