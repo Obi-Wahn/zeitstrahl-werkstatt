@@ -1547,7 +1547,7 @@
     // Klassenserver
     $('btn-abgaben').addEventListener('click', () => {
       if (server.offline) {
-        toast('Der Server antwortet nicht. Läuft das Fenster „Server starten“ noch?');
+        toast('Der Server antwortet nicht. Läuft das Server-Fenster noch?');
         return;
       }
       renderAbgabenList();

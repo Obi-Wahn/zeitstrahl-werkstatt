@@ -1,5 +1,5 @@
 #!/bin/bash
-# Zeitstrahl-Werkstatt: Klassenserver starten (macOS)
+# Zeitstrahl-Werkstatt: Klassenserver starten (Mac)
 # Der Port steht in einstellungen.txt
 cd "$(dirname "$0")" || exit 1
 if ! command -v node >/dev/null 2>&1; then
