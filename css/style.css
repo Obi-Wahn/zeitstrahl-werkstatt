@@ -927,6 +927,29 @@ body.present .detail-img { max-height: 46vh; }
   white-space: nowrap;
 }
 .ab-status.done { border-style: solid; border-color: var(--board); color: var(--board); background: var(--wash); }
+
+.samples-list { list-style: none; margin: 0; padding: 4px 20px 12px; overflow: auto; display: grid; gap: 6px; }
+.sample {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sample:hover { background: var(--wash); }
+.sample:focus-visible { outline: 3px solid var(--board); outline-offset: 2px; }
+.sample strong { font-size: 16px; }
+.empty .linkbtn { margin-top: 0; font-size: inherit; pointer-events: auto; }
+body.present .empty-more { display: none; }
+
 @media (max-width: 560px) {
   .ab { grid-template-columns: minmax(0, 1fr) auto; }
   .ab-status { grid-column: 1 / -1; justify-self: start; }

@@ -119,10 +119,12 @@
     const activeId = timelines.some((t) => t.id === d.activeId) ? d.activeId : timelines[0].id;
     return { activeId, timelines };
   }
+  // Beim ersten Start gibt es nur einen leeren Zeitstrahl. Beispiele öffnet man bei Bedarf über „Datei → Beispiel öffnen …“.
+  const NEW_NAME = 'Neuer Zeitstrahl';
+  const NEW_SOURCE = '# Datum | Titel | Kategorie | Beschreibung\n';
   function freshState() {
-    const timelines = SAMPLES.map((t) => ({ id: t.id, name: t.name, source: t.source, images: {} }));
-    if (!timelines.length) timelines.push({ id: newId(), name: 'Neuer Zeitstrahl', source: '', images: {} });
-    return { activeId: timelines[0].id, timelines };
+    const id = newId();
+    return { activeId: id, timelines: [{ id, name: NEW_NAME, source: NEW_SOURCE, images: {} }] };
   }
   async function loadState() {
     try {
@@ -939,6 +941,63 @@
     return tl;
   }
 
+  /* ---------- Beispiele ---------- */
+
+  // Ein Beispiel, das schon angelegt ist (auch unter neuer id), wird nur aufgerufen statt verdoppelt
+  const sampleTl = (s) => state.timelines.find((t) => t.id === s.id || t.name === s.name);
+  // Der unberührte leere Zeitstrahl vom Start wird durch das Beispiel ersetzt
+  const isUntouched = (t) => t && t.name === NEW_NAME && t.source.replace(/^#.*$/gm, '').trim() === ''
+    && !Object.keys(t.images || {}).length;
+
+  function openSamples() {
+    const list = $('samples-list');
+    list.textContent = '';
+    for (const s of SAMPLES) {
+      const items = Parser.parseSource(s.source, NOW).items;
+      const lo = items.reduce((m, it) => (it.start < m.start ? it : m), items[0]);
+      const hi = items.reduce((m, it) => ((it.end ?? it.start) > (m.end ?? m.start) ? it : m), items[0]);
+      const year = (p) => (p.today ? 'heute' : p.bc ? p.y + ' v. Chr.' : String(p.y));
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sample';
+      const text = document.createElement('span');
+      text.className = 'ab-text';
+      const name = document.createElement('strong');
+      name.textContent = s.name.replace(/\s*\(Beispiel\)\s*$/, '');
+      const meta = document.createElement('span');
+      meta.className = 'ab-meta';
+      const parts = [items.length + ' Einträge'];
+      if (items.length) parts.push(year(lo.a) + ' bis ' + year(hi.b || hi.a));
+      if (s.code) parts.push('Schülercode ' + s.code);
+      meta.textContent = parts.join(' · ');
+      text.append(name, meta);
+      b.append(text);
+      if (sampleTl(s)) {
+        const tag = document.createElement('span');
+        tag.className = 'ab-status done';
+        tag.textContent = 'schon da';
+        b.append(tag);
+      }
+      b.addEventListener('click', () => { $('samples').close(); openSample(s); });
+      li.append(b);
+      list.append(li);
+    }
+    $('samples').showModal();
+  }
+
+  function openSample(s) {
+    const had = sampleTl(s);
+    if (had) { switchTo(had.id); return; }
+    const own = ownTl();
+    const t = addTimeline({ name: s.name, source: s.source, images: {} });
+    if (!studentView && state.timelines.length > 1 && isUntouched(own)) {
+      state.timelines = state.timelines.filter((x) => x !== own);
+    }
+    switchTo(t.id);
+    toast(`Beispiel „${t.name.replace(/\s*\(Beispiel\)\s*$/, '')}“ geöffnet.`);
+  }
+
   let delArmed = 0;
   function disarmDelete() {
     clearTimeout(delArmed);
@@ -1350,7 +1409,7 @@
     });
 
     $('btn-new').addEventListener('click', () => {
-      const t = addTimeline({ name: 'Neuer Zeitstrahl', source: '# Datum | Titel | Kategorie | Beschreibung\n', images: {} });
+      const t = addTimeline({ name: NEW_NAME, source: NEW_SOURCE, images: {} });
       switchTo(t.id);
       $('tl-name').focus();
       $('tl-name').select();
@@ -1579,12 +1638,10 @@
       else if (act === 'export-backup') exportAll();
       else if (act === 'export-png') exportPng(false);
       else if (act === 'export-png-blank') exportPng(true);
-      else if (act === 'add-samples') {
-        let last = null;
-        for (const s of SAMPLES) last = addTimeline({ name: s.name, source: s.source, images: {} });
-        if (last) { switchTo(last.id); toast('Beispiele hinzugefügt.'); }
-      }
+      else if (act === 'open-sample') openSamples();
     });
+    $('empty-sample').addEventListener('click', openSamples);
+    $('samples-close').addEventListener('click', () => $('samples').close());
     $('backup-due').addEventListener('click', exportAll);
     $('file-input').addEventListener('change', (e) => {
       const files = e.target.files;

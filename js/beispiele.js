@@ -1,7 +1,7 @@
 /*
  * Zeitstrahl-Werkstatt · Beispiele
- * Werden beim ersten Start geladen und lassen sich über „Datei → Beispiele hinzufügen“
- * jederzeit wiederholen. Beispiele mit „code“ öffnen Schülerinnen und Schüler auf der
+ * Die Lehrkraft-Seite startet leer. Beispiele öffnet man einzeln über „Datei → Beispiel öffnen …“
+ * oder über den Hinweis im leeren Zeitstrahl. Beispiele mit „code“ öffnen Schülerinnen und Schüler auf der
  * Schülerseite unter „Mit eurem Code weiterarbeiten“ als Vorlage für einen eigenen
  * Zeitstrahl. Ein solcher Code enthält I, O, 0 oder 1, die der Server nie vergibt.
  */
