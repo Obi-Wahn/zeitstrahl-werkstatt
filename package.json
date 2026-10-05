@@ -4,6 +4,6 @@
   "description": "Interaktive Zeitstrahlen für Geschichte und Religion mit Klassenserver",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/parser.test.js && node tests/layout.test.js && node tests/zip.test.js"
+    "test": "node tests/parser.test.js && node tests/layout.test.js && node tests/zip.test.js && node tests/server.test.js"
   }
 }

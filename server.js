@@ -181,6 +181,13 @@ function cookieValue(req, name) {
   return '';
 }
 
+// Abgelaufene Anmeldungen entfernen, damit sie nicht mehr mitgezählt werden
+function dropExpiredSessions() {
+  for (const [token, since] of sessions) {
+    if (Date.now() - since > SESSION_HOURS * 3600000) sessions.delete(token);
+  }
+}
+
 function hasSession(req) {
   const token = cookieValue(req, COOKIE);
   const since = token && sessions.get(token);
@@ -209,7 +216,10 @@ function checkPassword(pw) {
   return crypto.timingSafeEqual(Buffer.from(hashPassword(pw, a.salt), 'hex'), Buffer.from(a.hash, 'hex'));
 }
 
-const accessInfo = () => ({ passwort: !!readAccess(), angemeldet: sessions.size });
+function accessInfo() {
+  dropExpiredSessions();
+  return { passwort: !!readAccess(), angemeldet: sessions.size };
+}
 
 function loginPage(res, hinweis) {
   let html;
@@ -241,6 +251,7 @@ async function login(req, res) {
     console.log(`${time()}  Falsches Passwort für die Lehrkraft-Ansicht, von ${req.socket.remoteAddress}`);
     return back('falsch');
   }
+  dropExpiredSessions();
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, Date.now());
   console.log(`${time()}  Lehrkraft-Ansicht geöffnet von ${req.socket.remoteAddress}`);
@@ -345,9 +356,11 @@ async function serveStatic(req, res, pathname) {
     }
     rel = 'index.html';
   }
-  const parts = rel.split('/');
-  const allowed = rel === 'index.html' || rel === 'beitrag.html' || (parts.length >= 2 && PUBLIC_DIRS.has(parts[0]));
+  // Erst den Pfad auflösen, dann prüfen: „css/../server.js“ ist server.js
   const file = path.resolve(ROOT, rel);
+  const parts = path.relative(ROOT, file).split(path.sep);
+  const allowed = (parts.length === 1 && (parts[0] === 'index.html' || parts[0] === 'beitrag.html'))
+    || (parts.length >= 2 && PUBLIC_DIRS.has(parts[0]));
   if (!allowed || !file.startsWith(ROOT + path.sep) || !TYPES[path.extname(file)]) {
     return send(res, 404, 'Nicht gefunden');
   }
@@ -376,10 +389,36 @@ const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
 const validImage = (s) => typeof s === 'string' && s.length <= MAX_IMAGE && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
 const time = () => new Date().toLocaleTimeString('de-DE');
 
+// Erst in eine eigene Zwischendatei schreiben, dann umbenennen. So liegt immer eine
+// vollständige Datei da, auch wenn zwei Anfragen gleichzeitig dieselbe Datei schreiben.
 async function writeAtomic(file, text) {
-  const tmp = file + '.tmp';
-  await fsp.writeFile(tmp, text);
-  await fsp.rename(tmp, file);
+  const tmp = `${file}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  try {
+    await fsp.writeFile(tmp, text);
+    await fsp.rename(tmp, file);
+  } catch (e) {
+    await fsp.unlink(tmp).catch(() => {});
+    throw e;
+  }
+}
+
+// Zwischendateien, die bei einem Absturz mitten im Schreiben liegen geblieben sind
+function removeTmp(dir) {
+  try {
+    for (const f of fs.readdirSync(dir)) if (f.endsWith('.tmp')) fs.unlinkSync(path.join(dir, f));
+  } catch (e) { /* Ordner gibt es noch nicht */ }
+}
+
+// Arbeitsschritte mit demselben Schlüssel nacheinander ausführen. Sonst liest z. B.
+// die Rückmeldung der Lehrkraft einen Zeitstrahl, während die Gruppe ihn gerade
+// speichert, und schreibt danach den alten Stand zurück.
+const queues = new Map();
+function oneAfterAnother(key, fn) {
+  const job = (queues.get(key) || Promise.resolve()).then(fn);
+  const tail = job.catch(() => {});
+  queues.set(key, tail);
+  tail.then(() => { if (queues.get(key) === tail) queues.delete(key); });
+  return job;
 }
 
 // Zählt Anfragen je Gerät in der letzten Minute
@@ -505,7 +544,11 @@ async function saveAbgabe(req, res) {
   const eintraege = cleanEntries(d.eintraege);
   if (!von) return sendJson(res, 400, { fehler: 'Bitte bei „Erstellt von“ eure Vornamen eintragen.' });
   if (!eintraege.length) return sendJson(res, 400, { fehler: 'Der Zeitstrahl hat noch kein vollständiges Ereignis.' });
+  // Neue Zeitstrahlen kommen gemeinsam in eine Schlange, damit zwei nie denselben Code bekommen
+  return oneAfterAnother(typeof d.id === 'string' ? d.id : '', () => storeAbgabe(res, d, von, eintraege));
+}
 
+async function storeAbgabe(res, d, von, eintraege) {
   let old = null;
   if (typeof d.id === 'string' && index.has(d.id)) {
     old = index.get(d.id);
@@ -564,9 +607,12 @@ async function loadByCode(req, res, raw) {
 // Die Lehrkraft schreibt der Gruppe eine kurze Rückmeldung. Die Gruppe sieht sie
 // auf der Schülerseite, sobald sie mit ihrem Code arbeitet.
 async function saveRueckmeldung(req, res, id) {
-  if (!index.has(id)) return sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
   const d = await readJson(req, 64 * 1024);
-  const text = str(d.rueckmeldung, 1000);
+  return oneAfterAnother(id, () => storeRueckmeldung(res, id, str(d.rueckmeldung, 1000)));
+}
+
+async function storeRueckmeldung(res, id, text) {
+  if (!index.has(id)) return sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
   const datei = index.get(id).datei;
   const file = path.join(ABGABEN, datei);
   let abgabe;
@@ -596,7 +642,9 @@ async function sendStand(req, res, raw) {
   sendJson(res, 200, { status: hit.status, aktualisiert: hit.aktualisiert, rueckmeldung: hit.rueckmeldung || '', gesperrt: task.gesperrt });
 }
 
-async function archiveAbgabe(res, id) {
+const archiveAbgabe = (res, id) => oneAfterAnother(id, () => moveToArchive(res, id));
+
+async function moveToArchive(res, id) {
   await fsp.mkdir(ARCHIVE, { recursive: true });
   const a = index.get(id);
   try {
@@ -1002,6 +1050,7 @@ async function ensurePassword() {
 
 async function main() {
   await ensurePassword();
+  for (const dir of [DATA, ABGABEN, TIMELINES]) removeTmp(dir);
   loadIndex();
   loadTimelines();
   listen();
