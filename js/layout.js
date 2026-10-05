@@ -3,7 +3,9 @@
  *
  * layout()  berechnet aus Einträgen und sichtbarem Zeitraum die Positionen:
  *           Achse, Skalenstriche, Fähnchen (Ereignisse) und Balken (Zeiträume).
- *           Überlappende Beschriftungen werden auf "Spuren" verteilt.
+ *           Fähnchen stehen ober- oder unterhalb der Achse und zeigen nach rechts
+ *           oder links, je nachdem, wo Platz ist. Überlappende Beschriftungen
+ *           werden auf "Spuren" verteilt. Die Zeiträume stehen abgetrennt darunter.
  * svgBody() macht daraus SVG-Markup – für den Bildschirm und für den Bild-Export.
  *
  * Die Textbreiten misst eine von außen übergebene Funktion measure(),
@@ -33,8 +35,9 @@
       dateFont: 13 * s,
       axisFont: 13 * s,
       tick: 8 * s,
-      barH: 27 * s,
-      barGap: 7 * s,
+      barH: 10 * s,
+      barRow: 33 * s,
+      barGap: 6 * s,
       barFont: 14 * s,
       barDate: 12.5 * s,
       blankW: 110 * s,
@@ -161,27 +164,65 @@
       return i;
     };
 
-    // Ereignisse: Fähnchen oberhalb der Achse, Spur 0 liegt direkt über der Achse.
-    // Am rechten Rand zeigt das Fähnchen nach links, damit nichts abgeschnitten wird.
+    // Ereignisse: Fähnchen ober- oder unterhalb der Achse, Spur 0 liegt jeweils direkt an der Achse.
+    // Ein Fähnchen zeigt nach rechts oder links; am Rand immer nach innen, damit nichts abgeschnitten wird.
     const evs = [];
-    const eLanes = [];
     const points = items.filter((i) => i.kind === 'point').sort((a, b) => a.start - b.start || a.line - b.line);
     for (const it of points) {
       const x = X(it.start);
       const w = pointLabelW(it, M, measure, fam, o.blank);
       if (x + w < -20 || x > W + 20) continue;
-      const flip = x + w > W && x - w >= 0;
-      const lane = place(eLanes, flip ? x - w : x, flip ? x : x + w, 8 * s);
-      evs.push({ it, x, w, flip, dW: measure(it.shortDate, 400, M.dateFont, fam), lane, y: 0 });
+      const canFlip = x - w >= 0 && x + w <= W;
+      evs.push({ it, x, w, flip: x + w > W && x - w >= 0, canFlip, below: false, dW: measure(it.shortDate, 400, M.dateFont, fam), lane: 0, y: 0 });
     }
-    const nE = eLanes.length;
-    const axisY = top + nE * M.laneH + (nE ? 14 * s : 6 * s);
-    for (const e of evs) e.y = axisY - 14 * s - e.lane * M.laneH - M.laneH / 2;
+
+    // Verteilt die Fähnchen mit festgelegter Seite auf Spuren. Bewertet wird vor allem die
+    // höhere der beiden Seiten, danach die Summe der Spuren (niedrige Fähnchen, kurze Stiele).
+    // Bei Gleichstand gewinnt oben: dort stehen die Fähnchen, wenn Platz genug ist.
+    const assign = () => {
+      const up = [];
+      const down = [];
+      let sum = 0;
+      for (const e of evs) {
+        e.lane = place(e.below ? down : up, e.flip ? e.x - e.w : e.x, e.flip ? e.x : e.x + e.w, 8 * s);
+        sum += e.lane + (e.below ? 0.5 : 0);
+      }
+      return { up, down, cost: Math.max(up.length, down.length + 0.5) * 1000 + sum };
+    };
+    // Schrittweise verbessern: Fähnchen auf die andere Seite drehen oder unter die Achse setzen,
+    // solange das Bild dadurch niedriger wird.
+    let best = assign();
+    if (evs.length <= 150) {
+      for (let round = 0; round < 8; round++) {
+        let better = false;
+        for (const e of evs) {
+          for (const key of ['flip', 'below']) {
+            if (key === 'flip' && !e.canFlip) continue;
+            e[key] = !e[key];
+            const r = assign();
+            if (r.cost < best.cost) { best = r; better = true; } else e[key] = !e[key];
+          }
+        }
+        if (!better) break;
+      }
+    }
+    best = assign();
+
+    const nUp = best.up.length;
+    const nDown = best.down.length;
+    const axisY = top + nUp * M.laneH + (nUp ? 14 * s : 6 * s);
+    const downTop = axisY + M.tick + M.axisFont + 14 * s;
+    for (const e of evs) {
+      e.y = e.below
+        ? downTop + e.lane * M.laneH + M.laneH / 2
+        : axisY - 14 * s - e.lane * M.laneH - M.laneH / 2;
+    }
+    const eventsBottom = nDown ? downTop + nDown * M.laneH : axisY + M.tick + M.axisFont + 6 * s;
 
     const ticks = makeTicks(view, W, X, M, measure, fam);
 
-    // Zeiträume: Balken unterhalb der Achse
-    const spansTop = axisY + M.tick + M.axisFont + 16 * s;
+    // Zeiträume: abgetrennter Bereich unter den Ereignissen. Die Beschriftung steht über dem Balken,
+    // bündig mit seinem Anfang (am rechten Rand bündig mit dem Ende).
     const sps = [];
     const sLanes = [];
     const spans = items
@@ -193,19 +234,18 @@
       if (x1 < -2 || x0 > W + 2) continue;
       const { tW, dW } = spanLabelParts(it, M, measure, fam, o.blank);
       const lw = tW + 7 * s + dW;
-      // Beschriftung im Balken, sonst rechts daneben, sonst links daneben
-      let labelX;
-      if (Math.min(x1, W) - Math.max(x0, 0) - 16 * s >= lw) labelX = Math.max(x0, 0) + 8 * s;
-      else if (x1 + 6 * s + lw <= W) labelX = x1 + 6 * s;
-      else if (x0 - 6 * s - lw >= 0) labelX = x0 - 6 * s - lw;
-      else labelX = Math.max(0, Math.min(W - lw, Math.max(x0, 0) + 8 * s));
-      const lane = place(sLanes, Math.min(x0, labelX), Math.max(x1, labelX + lw), 6 * s);
-      sps.push({ it, x0, x1, tW, dW, labelX, lane, y: spansTop + lane * (M.barH + M.barGap) });
+      let labelX = Math.max(x0, 0);
+      if (labelX + lw > W) labelX = Math.max(0, Math.min(x1, W) - lw);
+      const lane = place(sLanes, Math.min(x0, labelX), Math.max(x1, labelX + lw), 10 * s);
+      sps.push({ it, x0, x1, tW, dW, labelX, lane, y: 0 });
     }
     const nS = sLanes.length;
-    const bottom = nS ? spansTop + nS * (M.barH + M.barGap) - M.barGap : axisY + M.tick + M.axisFont + 6 * s;
+    const spansZone = nS ? eventsBottom + 6 * s : null;
+    const spansTop = nS ? spansZone + 14 * s : 0;
+    for (const sp of sps) sp.y = spansTop + sp.lane * (M.barRow + M.barGap);
+    const bottom = nS ? spansTop + nS * (M.barRow + M.barGap) - M.barGap : eventsBottom;
 
-    return { M, X, W, evs, sps, ticks, axisY, H: bottom + 18 * s };
+    return { M, X, W, evs, sps, ticks, axisY, spansZone, H: bottom + 18 * s };
   }
 
   /* ---------- SVG ---------- */
@@ -238,6 +278,12 @@
       }
     }
 
+    // Bereich der Zeiträume, durch Fläche und Linie von den Ereignissen getrennt
+    if (g.spansZone != null) {
+      out.push(`<rect x="0" y="${f(g.spansZone)}" width="${f(W)}" height="${f(g.H - g.spansZone)}" style="fill:${paint.ink};fill-opacity:0.045"/>`);
+      out.push(`<line x1="0" y1="${f(g.spansZone)}" x2="${f(W)}" y2="${f(g.spansZone)}" style="stroke:${paint.soft};stroke-width:1;stroke-opacity:0.5;stroke-dasharray:${f(5 * s)} ${f(4 * s)}"/>`);
+    }
+
     // Achse und Skala
     out.push(`<line x1="0" y1="${f(g.axisY)}" x2="${f(W)}" y2="${f(g.axisY)}" style="stroke:${paint.ink};stroke-width:${f(1.6 * s)}"/>`);
     for (const x of g.ticks.minor) {
@@ -247,8 +293,6 @@
     for (const t of g.ticks.major) {
       if (t.x < -1 || t.x > W + 1) continue;
       out.push(`<line x1="${f(t.x)}" y1="${f(g.axisY)}" x2="${f(t.x)}" y2="${f(g.axisY + M.tick)}" style="stroke:${paint.ink};stroke-width:${f(1.2 * s)}"/>`);
-      if (t.x - t.w / 2 < 0 || t.x + t.w / 2 > W) continue;
-      out.push(`<text x="${f(t.x)}" y="${f(g.axisY + M.tick + M.axisFont + 2 * s)}" text-anchor="middle" style="font-size:${f(M.axisFont)}px;fill:${t.special ? paint.ink : paint.soft};font-weight:${t.special ? 700 : 400}">${esc(t.label)}</text>`);
     }
 
     // Zeiträume
@@ -259,7 +303,8 @@
       const x0 = Math.max(sp.x0, -4);
       const x1 = Math.min(sp.x1, W + 4);
       const w = Math.max(x1 - x0, 3 * s);
-      const ty = sp.y + M.barH / 2 + M.barFont * 0.36;
+      const ty = sp.y + M.barFont * 0.9;
+      const by = sp.y + M.barRow - M.barH;
       let label;
       if (o.blank) {
         label = `<line x1="${f(sp.labelX)}" y1="${f(ty + 2 * s)}" x2="${f(sp.labelX + sp.tW)}" y2="${f(ty + 2 * s)}" style="stroke:${paint.soft};stroke-width:1"/>`
@@ -270,14 +315,21 @@
           + `<tspan dx="${f(7 * s)}" style="font-size:${f(M.barDate)}px;fill:${paint.soft}">${esc(it.shortDate)}</tspan></text>`;
       }
       out.push(open(it)
-        + `<rect class="hit" x="${f(x0)}" y="${f(sp.y)}" width="${f(w)}" height="${f(M.barH)}" rx="${f(3 * s)}" style="fill:${c};fill-opacity:${on ? 0.34 : 0.17};stroke:${c};stroke-width:${f((on ? 2.2 : 1) * s)}"/>`
+        + `<rect class="hit" x="${f(Math.min(x0, sp.labelX))}" y="${f(sp.y)}" width="${f(Math.max(x1, sp.labelX + sp.tW + 7 * s + sp.dW) - Math.min(x0, sp.labelX))}" height="${f(M.barRow)}" style="fill:transparent"/>`
+        + `<rect x="${f(x0)}" y="${f(by)}" width="${f(w)}" height="${f(M.barH)}" rx="${f(M.barH / 2)}" style="fill:${c};fill-opacity:${on ? 0.9 : 0.6};stroke:${c};stroke-width:${f((on ? 2.2 : 1) * s)}"/>`
         + label + '</g>');
     }
 
     // Stiele der Fähnchen
     for (const e of g.evs) {
       const on = e.it.id === sel;
-      out.push(`<line x1="${f(e.x)}" y1="${f(e.y + M.pillH / 2)}" x2="${f(e.x)}" y2="${f(g.axisY)}" style="stroke:${on ? paint.cat(e.it.ci) : paint.soft};stroke-width:${f((on ? 2 : 1) * s)}"/>`);
+      out.push(`<line x1="${f(e.x)}" y1="${f(e.below ? e.y - M.pillH / 2 : e.y + M.pillH / 2)}" x2="${f(e.x)}" y2="${f(g.axisY)}" style="stroke:${on ? paint.cat(e.it.ci) : paint.soft};stroke-width:${f((on ? 2 : 1) * s)}"/>`);
+    }
+    // Jahreszahlen nach den Stielen, mit Rand in Papierfarbe, damit Stiele unter die Achse
+    // die Zahlen nicht durchstreichen
+    for (const t of g.ticks.major) {
+      if (t.x - t.w / 2 < 0 || t.x + t.w / 2 > W) continue;
+      out.push(`<text x="${f(t.x)}" y="${f(g.axisY + M.tick + M.axisFont + 2 * s)}" text-anchor="middle" style="font-size:${f(M.axisFont)}px;fill:${t.special ? paint.ink : paint.soft};font-weight:${t.special ? 700 : 400};stroke:${paint.sheet};stroke-width:${f(4 * s)};stroke-linejoin:round;paint-order:stroke">${esc(t.label)}</text>`);
     }
     // Punkte auf der Achse
     for (const e of g.evs) {
