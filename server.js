@@ -8,6 +8,8 @@
  *
  *   Lehrkraft:  http://localhost:8080          an diesem Laptop
  *   Lehrer-PC:  http://<IP des Laptops>:8080/lehrkraft   mit Passwort, siehe unten
+ *
+ *         node server.js --passwort   Passwort für andere Geräte festlegen oder ändern
  *   iPads:      http://<IP des Laptops>:8080   öffnet die Schülerseite
  *
  * Der Port steht in einstellungen.txt (Zeile „port = 8080“).
@@ -17,9 +19,10 @@
  * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
  * Die Zeitstrahlen der Lehrkraft liegen zusätzlich je als eigene Datei in
  * daten/zeitstrahlen, dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
- * Legt die Lehrkraft am Laptop ein Passwort fest (Datei → Am Lehrer-PC öffnen),
- * kommt sie auch von einem anderen Gerät im Netz in die Lehrkraft-Ansicht,
- * z. B. vom Lehrer-PC am Beamer. Gespeichert wird nur ein Hash in daten/zugang.json.
+ * Beim ersten Start fragt das Server-Fenster nach einem Passwort. Mit ihm kommt die
+ * Lehrkraft auch von einem anderen Gerät im Netz in die Lehrkraft-Ansicht, z. B. vom
+ * Lehrer-PC am Beamer oder wenn der Server ohne Bildschirm läuft. Gespeichert wird
+ * nur ein Hash in daten/zugang.json.
  * Nichts verlässt diesen Laptop. Es werden keine Zusatzpakete benötigt.
  */
 'use strict';
@@ -48,6 +51,7 @@ const ACCESS_FILE = path.join(DATA, 'zugang.json'); // Hash des Passworts für a
 
 const args = process.argv.slice(2);
 const OPEN_BROWSER = !args.includes('--kein-browser');
+const ASK_PASSWORD = args.includes('--passwort');
 
 // einstellungen.txt lesen: Zeilen wie „port = 8080“, # leitet Kommentare ein
 function readSettings() {
@@ -150,13 +154,20 @@ function hasSession(req) {
   return true;
 }
 
-function readAccess() {
+// Inhalt von daten/zugang.json: { salt, hash } oder { aus: true }, wenn beim
+// ersten Start bewusst kein Passwort gewählt wurde. null: Datei fehlt.
+function readAccessFile() {
   try {
     const d = JSON.parse(fs.readFileSync(ACCESS_FILE, 'utf8'));
-    return typeof d.salt === 'string' && typeof d.hash === 'string' ? d : null;
+    return d && typeof d === 'object' ? d : null;
   } catch (e) {
-    return null; // kein Passwort festgelegt
+    return null;
   }
+}
+
+function readAccess() {
+  const d = readAccessFile();
+  return d && typeof d.salt === 'string' && typeof d.hash === 'string' ? d : null;
 }
 
 const hashPassword = (pw, salt) => crypto.scryptSync(String(pw).normalize('NFC'), salt, 32).toString('hex');
@@ -165,25 +176,6 @@ function checkPassword(pw) {
   const a = readAccess();
   if (!a || typeof pw !== 'string' || !pw) return false;
   return crypto.timingSafeEqual(Buffer.from(hashPassword(pw, a.salt), 'hex'), Buffer.from(a.hash, 'hex'));
-}
-
-async function setPassword(req, res) {
-  const d = await readJson(req, 4096);
-  const pw = typeof d.passwort === 'string' ? d.passwort : '';
-  if ([...pw].length < MIN_PASSWORD) return sendJson(res, 400, { fehler: `Das Passwort braucht mindestens ${MIN_PASSWORD} Zeichen.` });
-  const salt = crypto.randomBytes(16).toString('hex');
-  await fsp.mkdir(DATA, { recursive: true });
-  await writeAtomic(ACCESS_FILE, JSON.stringify({ salt, hash: hashPassword(pw, salt), geaendert: new Date().toISOString() }));
-  sessions.clear();
-  console.log(`${time()}  Passwort für andere Geräte festgelegt. Angemeldete Geräte müssen sich neu anmelden.`);
-  sendJson(res, 200, accessInfo());
-}
-
-async function removePassword(res) {
-  await fsp.unlink(ACCESS_FILE).catch(() => {});
-  sessions.clear();
-  console.log(`${time()}  Zugang von anderen Geräten abgeschaltet.`);
-  sendJson(res, 200, accessInfo());
 }
 
 const accessInfo = () => ({ passwort: !!readAccess(), angemeldet: sessions.size });
@@ -196,7 +188,7 @@ function loginPage(res, hinweis) {
     return send(res, 500, 'anmelden.html fehlt');
   }
   const text = !readAccess()
-    ? 'Am Laptop ist noch kein Passwort festgelegt. Dort in der Lehrkraft-Ansicht unter „Datei → Am Lehrer-PC öffnen“ eins festlegen.'
+    ? 'Es ist noch kein Passwort festgelegt. Dafür den Server einmal mit „node server.js --passwort“ starten.'
     : hinweis === 'falsch' ? 'Das Passwort stimmt nicht.'
       : hinweis === 'gesperrt' ? 'Zu viele falsche Versuche. Bitte eine Minute warten.'
         : hinweis === 'abgemeldet' ? 'Abgemeldet.' : '';
@@ -793,12 +785,10 @@ async function handle(req, res) {
     return loginPage(res, url.searchParams.get('hinweis'));
   }
 
-  // Passwort festlegen nur am Laptop selbst
-  if (p === '/api/zugang') {
+  // Stand des Passworts, nur am Laptop selbst
+  if (p === '/api/zugang' && m === 'GET') {
     if (!localApi(req)) return sendJson(res, 403, { fehler: 'Nur am Laptop der Lehrkraft erlaubt.' });
-    if (m === 'GET') return sendJson(res, 200, { ...accessInfo(), port: server.address().port, adressen: lanAddresses() });
-    if (m === 'PUT') return setPassword(req, res);
-    if (m === 'DELETE') return removePassword(res);
+    return sendJson(res, 200, { ...accessInfo(), port: server.address().port, adressen: lanAddresses() });
   }
 
   // Nur für die Lehrkraft: am Laptop oder angemeldet an einem anderen Gerät
@@ -846,9 +836,93 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-loadIndex();
-loadTimelines();
-server.listen(PORT, '0.0.0.0', () => {
+/* ---------- Passwort im Server-Fenster festlegen ---------- */
+
+// Liest eine Eingabe, ohne sie anzuzeigen
+function askHidden(question) {
+  return new Promise((resolve) => {
+    const input = process.stdin;
+    process.stdout.write(question);
+    input.setRawMode(true);
+    input.resume();
+    input.setEncoding('utf8');
+    let text = '';
+    const done = (value) => {
+      input.setRawMode(false);
+      input.pause();
+      input.removeListener('data', onData);
+      process.stdout.write('\n');
+      resolve(value);
+    };
+    const onData = (chunk) => {
+      for (const c of chunk) {
+        if (c === '\r' || c === '\n') return done(text);
+        if (c === '\u0003') { process.stdout.write('\n'); process.exit(1); } // Strg+C
+        if (c === '\u007f' || c === '\b') text = [...text].slice(0, -1).join('');
+        else if (c >= ' ') text += c;
+      }
+    };
+    input.on('data', onData);
+  });
+}
+
+async function askPassword(firstStart) {
+  console.log('');
+  if (firstStart) {
+    console.log('  Mit einem Passwort lässt sich die Lehrkraft-Ansicht auch an einem anderen Gerät');
+    console.log('  im Netz öffnen, z. B. am Lehrer-PC am Beamer. Die Eingabe bleibt unsichtbar.');
+    console.log('  Ohne Passwort einfach Enter drücken: Dann geht die Lehrkraft-Ansicht nur an diesem Laptop.');
+    console.log('  Später festlegen oder ändern: node server.js --passwort\n');
+  } else {
+    console.log('  Neues Passwort für die Lehrkraft-Ansicht an anderen Geräten. Die Eingabe bleibt unsichtbar.');
+    console.log('  Nur Enter: kein Passwort, die Lehrkraft-Ansicht geht dann nur an diesem Laptop.\n');
+  }
+  for (;;) {
+    const pw = await askHidden('  Passwort: ');
+    let file;
+    if (!pw) {
+      file = { aus: true };
+      console.log('  Kein Passwort. Die Lehrkraft-Ansicht geht nur an diesem Laptop.');
+    } else if ([...pw].length < MIN_PASSWORD) {
+      console.log(`  Das Passwort braucht mindestens ${MIN_PASSWORD} Zeichen.\n`);
+      continue;
+    } else if ((await askHidden('  Noch einmal: ')) !== pw) {
+      console.log('  Die beiden Eingaben stimmen nicht überein.\n');
+      continue;
+    } else {
+      const salt = crypto.randomBytes(16).toString('hex');
+      file = { salt, hash: hashPassword(pw, salt) };
+      console.log('  Passwort gespeichert (nur als Hash in daten/zugang.json).');
+    }
+    fs.mkdirSync(DATA, { recursive: true });
+    fs.writeFileSync(ACCESS_FILE, JSON.stringify({ ...file, geaendert: new Date().toISOString() }));
+    return;
+  }
+}
+
+// Beim ersten Start oder mit --passwort fragen. Ohne Konsole (z. B. als Dienst) geht das nicht.
+async function ensurePassword() {
+  const firstStart = !readAccessFile();
+  if (!ASK_PASSWORD && !firstStart) return;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    if (ASK_PASSWORD) {
+      console.error('\nDas Passwort lässt sich nur in einem Terminal festlegen: node server.js --passwort\n');
+      process.exit(1);
+    }
+    console.log('\n  Kein Passwort für andere Geräte festgelegt. Dafür einmal im Terminal starten: node server.js --passwort');
+    return;
+  }
+  await askPassword(firstStart);
+}
+
+async function main() {
+  await ensurePassword();
+  loadIndex();
+  loadTimelines();
+  listen();
+}
+
+const listen = () => server.listen(PORT, '0.0.0.0', () => {
   const local = `http://${withPort('localhost')}`;
   const lan = lanAddresses();
   console.log('\n  Zeitstrahl-Werkstatt läuft.\n');
@@ -862,7 +936,7 @@ server.listen(PORT, '0.0.0.0', () => {
   if (lan.length && readAccess()) {
     console.log(`  Lehrer-PC (mit Passwort):   http://${withPort(lan[0])}/lehrkraft`);
   } else if (lan.length) {
-    console.log('  Lehrer-PC:                  erst ein Passwort festlegen (Datei → Am Lehrer-PC öffnen)');
+    console.log('  Lehrer-PC:                  nur mit Passwort, festlegen mit: node server.js --passwort');
   }
   console.log(`\n  Port ${PORT} (änderbar in einstellungen.txt)`);
   console.log('  Zum Beenden dieses Fenster schließen oder Strg+C drücken.\n');
@@ -871,3 +945,5 @@ server.listen(PORT, '0.0.0.0', () => {
     exec(cmd, () => {});
   }
 });
+
+main();

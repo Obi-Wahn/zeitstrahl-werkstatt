@@ -1107,6 +1107,4 @@ body.login { min-height: 100vh; display: grid; place-items: center; padding: 16p
 .zugang .connect-url { font-size: clamp(18px, 2.2vw, 26px); white-space: normal; overflow-wrap: anywhere; }
 .zugang-state { font-weight: 700; }
 .zugang-state[data-tone="ok"] { color: var(--board); }
-.zugang-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
-.zugang-form .field { flex: 1 1 220px; }
 .zugang-note { font-size: 13.5px; color: var(--ink-soft); }

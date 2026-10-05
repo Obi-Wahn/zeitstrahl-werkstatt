@@ -613,7 +613,8 @@
     }
   }
 
-  // Passwort für den Lehrer-PC (nur am Laptop selbst)
+  // Adresse und Passwort-Stand für den Lehrer-PC (nur am Laptop selbst).
+  // Festgelegt wird das Passwort im Server-Fenster, damit es auch ohne Bildschirm am Server geht.
   let zugang = null;
   function renderZugang() {
     const z = zugang || { passwort: false, adressen: [], port: 8080 };
@@ -630,9 +631,8 @@
       ? `Passwort ist festgelegt.${z.angemeldet ? ` Angemeldete Geräte: ${z.angemeldet}.` : ''}`
       : 'Noch kein Passwort festgelegt. Ohne Passwort kommt nur dieser Laptop in die Lehrkraft-Ansicht.';
     st.dataset.tone = z.passwort ? 'ok' : '';
-    $('zugang-pw-label').textContent = z.passwort ? 'Neues Passwort' : 'Passwort festlegen';
-    $('zugang-save').textContent = z.passwort ? 'Ändern' : 'Festlegen';
-    $('zugang-off').hidden = !z.passwort;
+    $('zugang-how').innerHTML = (z.passwort ? 'Ändern oder entfernen' : 'Festlegen')
+      + ': das Server-Fenster schließen und im Werkstatt-Ordner <code>node server.js --passwort</code> starten. Das Server-Fenster fragt dann nach dem Passwort.';
   }
 
   async function openZugang() {
@@ -642,38 +642,8 @@
       toast(e.message);
       return;
     }
-    $('zugang-pw').value = '';
     renderZugang();
     $('zugang').showModal();
-  }
-
-  async function saveZugang(ev) {
-    ev.preventDefault();
-    const pw = $('zugang-pw').value;
-    if ([...pw].length < 6) {
-      toast('Das Passwort braucht mindestens 6 Zeichen.');
-      $('zugang-pw').focus();
-      return;
-    }
-    try {
-      const had = zugang && zugang.passwort;
-      zugang = { ...zugang, ...(await api('api/zugang', { method: 'PUT', body: JSON.stringify({ passwort: pw }) })) };
-      $('zugang-pw').value = '';
-      renderZugang();
-      toast(had ? 'Neues Passwort gilt. Andere Geräte melden sich neu an.' : 'Passwort festgelegt. Jetzt am Lehrer-PC die Adresse öffnen.');
-    } catch (e) {
-      toast(e.message);
-    }
-  }
-
-  async function removeZugang() {
-    try {
-      zugang = { ...zugang, ...(await api('api/zugang', { method: 'DELETE' })) };
-      renderZugang();
-      toast('Zugang abgeschaltet. Nur dieser Laptop kommt in die Lehrkraft-Ansicht.');
-    } catch (e) {
-      toast(e.message);
-    }
   }
 
   async function logout() {
@@ -1855,8 +1825,6 @@
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
     $('task-form').addEventListener('submit', saveTask);
-    $('zugang-form').addEventListener('submit', saveZugang);
-    $('zugang-off').addEventListener('click', removeZugang);
     $('zugang-close').addEventListener('click', () => $('zugang').close());
     $('btn-logout').addEventListener('click', logout);
     $('sp-copy').addEventListener('click', copyStudentView);
