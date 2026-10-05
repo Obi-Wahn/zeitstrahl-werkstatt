@@ -24,7 +24,7 @@ function test(name, fn) {
 }
 
 const measure = (text, weight, size) => text.length * size * 0.55;
-const opts = (extra) => Object.assign({ scale: 1, family: 'x', measure, blank: false }, extra);
+const opts = (extra) => Object.assign({ scale: 1, family: 'x', measure }, extra);
 const items = (src) => P.parseSource(src, NOW).items;
 const PAINT = { ink: '#111', soft: '#666', grid: '#ddd', sheet: '#fff', accent: '#c00', cat: () => '#08f' };
 
@@ -181,10 +181,17 @@ test('Titel werden im SVG sicher dargestellt', () => {
 
 test('Lückenbild zeigt Daten, aber keine Titel', () => {
   const list = items('1517 | Thesenanschlag\n1524–1526 | Bauernkrieg');
-  const g = L.layout(list, { v0: 1500, v1: 1540 }, 800, opts({ blank: true }));
+  const g = L.layout(list, { v0: 1500, v1: 1540 }, 800, opts());
   const svg = L.svgBody(g, PAINT, { blank: true });
   assert.ok(svg.includes('1517') && svg.includes('1524–1526'));
   assert.ok(!svg.includes('Thesenanschlag') && !svg.includes('Bauernkrieg'));
+});
+
+test('Lückenbild hat dieselbe Anordnung wie das Bild', () => {
+  const list = items('1517 | Thesenanschlag\n1521 | Reichstag zu Worms\n1522 | Wartburg\n1524–1526 | Bauernkrieg\n1530 | Augsburger Bekenntnis');
+  const g = L.layout(list, { v0: 1510, v1: 1535 }, 500, opts());
+  const rects = (svg) => svg.match(/<rect [^>]*>/g).join('\n');
+  assert.equal(rects(L.svgBody(g, PAINT, { blank: true })), rects(L.svgBody(g, PAINT, {})));
 });
 
 test('„heute“ erscheint nur, wenn es im Ausschnitt liegt', () => {

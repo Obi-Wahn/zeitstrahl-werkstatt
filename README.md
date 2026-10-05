@@ -110,12 +110,12 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Details | Klick auf einen Eintrag zeigt Datum, „vor … Jahren“, Dauer, Beschreibung, Bild, Verfasser und Bildquelle. Bilder lassen sich dort auch selbst hinzufügen. |
 | Tafelbild | Vollbild für den Beamer, große Schrift. **Schrittweise aufdecken** blättert in zeitlicher Reihenfolge (Pfeiltasten, Leertaste oder Presenter). |
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
-| Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern oder über **Datei → Zeitstrahl drucken** direkt auf A4 quer drucken. Bild und Druck sehen gleich aus: Kopf mit Titel, Rahmen, Kategorien und Datum. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
+| Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern oder über **Datei → Zeitstrahl drucken** direkt auf A4 quer drucken. Bild und Druck sehen gleich aus: Kopf mit Titel, Rahmen, Kategorien und Datum. Das **Lückenbild** zeigt an denselben Stellen nur die Daten mit Leerzeilen zum Ausfüllen, so passt das Bild als Lösung dazu. |
 | Übung | **Was kam zuerst?** im Tafelbild: Die Ereignisse stehen gemischt, die Klasse sortiert sie per Pfeil oder Ziehen, **Prüfen** und **Lösung zeigen** helfen weiter. |
 | Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgabe beenden, je Gruppe eine Rückmeldung schreiben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
 | Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich je Zeitstrahl als Datei in `daten/zeitstrahlen/` mit Tageskopien. Alle sichern als ZIP. Einlesen von .txt, .json, .csv und .zip. |
 
-Fürs Arbeitsblatt: links das gesicherte Bild, rechts das Lückenbild. Gedruckt sehen beide genauso aus.
+Fürs Arbeitsblatt: links das gesicherte Bild, rechts das Lückenbild. Das Lückenbild hat dieselbe Anordnung, statt der Titel stehen dort Linien, und oben ist Platz für Name und Datum. Ausgedruckt sehen beide genauso aus wie hier.
 
 <img src="docs/bilder/arbeitsblatt.png" width="49%" alt="Gesichertes Bild des Zeitstrahls mit Titel, Rahmen, Kategorien und Datum"> <img src="docs/bilder/lueckenbild.png" width="49%" alt="Lückenbild: nur die Daten, daneben Leerzeilen zum Ausfüllen, oben Name und Datum">
 
