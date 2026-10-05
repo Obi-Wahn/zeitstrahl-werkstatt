@@ -903,6 +903,25 @@ body.present .detail-img { max-height: 46vh; }
   color: var(--board);
   background: var(--wash);
 }
+
+/* Schülerseite: keine Verbindung zum Laptop, Abgabe beendet, Rückmeldung */
+.offline-msg, .locked-msg {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--warn);
+  border-radius: 8px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sheet);
+}
+.locked-msg { margin: 0; }
+.feedback-card { border-color: var(--board); }
+.feedback-text {
+  margin: 0;
+  font-size: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .code-box {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -959,12 +978,54 @@ body.present .detail-img { max-height: 46vh; }
 .ab-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ab {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   padding: 8px 10px;
   border: 1px solid var(--rule);
   border-radius: 8px;
+}
+
+/* Rückmeldung der Lehrkraft an eine Gruppe */
+.ab-feedback {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--rule);
+}
+.ab-feedback label { font-size: 13px; font-weight: 700; }
+.ab-feedback textarea {
+  width: 100%;
+  height: 76px;
+  min-height: 0;
+  font-family: var(--f-ui);
+  line-height: 1.45;
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--sheet);
+  color: var(--ink);
+  resize: vertical;
+}
+.ab-feedback-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Hinweis, dass die Abgabe beendet ist */
+.sperre-note, .sperre-chip {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.sperre-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid var(--board);
+  border-radius: 999px;
+  color: var(--board);
+  background: var(--wash);
+  font-weight: 700;
 }
 .ab-text { display: grid; gap: 2px; min-width: 0; }
 .ab-text strong { overflow-wrap: anywhere; }
@@ -1108,3 +1169,71 @@ body.login { min-height: 100vh; display: grid; place-items: center; padding: 16p
 .zugang-state { font-weight: 700; }
 .zugang-state[data-tone="ok"] { color: var(--board); }
 .zugang-note { font-size: 13.5px; color: var(--ink-soft); }
+
+/* ---------- Sortier-Übung „Was kam zuerst?“ ---------- */
+
+.sort { max-width: 760px; }
+.sort-list {
+  list-style: none;
+  counter-reset: sortnr;
+  margin: 0;
+  padding: 8px 20px 4px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+.sort-card {
+  counter-increment: sortnr;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--sheet);
+  cursor: grab;
+}
+.sort-card::before {
+  content: counter(sortnr) ".";
+  font-family: var(--f-mono);
+  color: var(--ink-soft);
+}
+.sort-card .swatch { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+.sort-card.dragging { opacity: 0.5; }
+.sort-card[data-state="ok"] { border-color: var(--board); background: var(--wash); }
+.sort-card[data-state="wrong"] { border-color: var(--warn); }
+.sort-text { display: grid; gap: 2px; min-width: 0; }
+.sort-text strong { font-size: 19px; overflow-wrap: anywhere; }
+.sort-tools { display: flex; gap: 6px; }
+.sort-result { margin: 0; padding: 10px 20px 0; font-weight: 700; }
+.sort-result[data-tone="ok"] { color: var(--board); }
+.sort-result[data-tone="warn"] { color: var(--warn); }
+
+@media (max-width: 560px) {
+  .sort-card { grid-template-columns: auto auto minmax(0, 1fr); }
+  .sort-tools { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* ---------- Drucken: Zeitstrahl und Lückenbild auf A4 quer ---------- */
+
+.print-area { display: none; }
+
+@page { size: A4 landscape; margin: 12mm; }
+
+@media print {
+  html:has(body.printing), body.printing { background: #FFFFFF; }
+  body.printing { color: #1C2420; }
+  body.printing .shell,
+  body.printing .toast,
+  body.printing dialog { display: none !important; }
+  body.printing .print-area {
+    display: block;
+    position: static;
+  }
+  body.printing .print-area svg {
+    display: block;
+    width: 273mm;
+    height: 186mm;
+  }
+}

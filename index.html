@@ -45,6 +45,9 @@
           <button type="button" role="menuitem" data-act="export-png">Ausschnitt als Bild sichern (PNG)</button>
           <button type="button" role="menuitem" data-act="export-png-blank">Lückenbild fürs Arbeitsblatt (PNG)</button>
           <hr>
+          <button type="button" role="menuitem" data-act="print">Zeitstrahl drucken (A4 quer)</button>
+          <button type="button" role="menuitem" data-act="print-blank">Lückenbild drucken (A4 quer)</button>
+          <hr>
           <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.zip)</button>
           <button type="button" role="menuitem" data-act="open-sample">Beispiel öffnen …</button>
           <hr class="zugang-only" hidden>
@@ -111,6 +114,7 @@
         <button type="button" class="btn" id="tl-next">Nächster Zeitstrahl ›</button>
       </div>
       <div class="present-right">
+        <button type="button" class="btn ghost" id="btn-sort">Was kam zuerst?</button>
         <button type="button" class="btn ghost connect-btn" hidden>iPads verbinden</button>
         <button type="button" class="btn ghost theme-btn">Farben: automatisch</button>
         <button type="button" class="btn" id="present-exit">Tafelbild beenden</button>
@@ -177,6 +181,7 @@
         <dt><code>31.10.1517</code> <code>9. November 1918</code></dt><dd>genauer Tag</dd>
         <dt><code>1618–1648</code> <code>1618 bis 1648</code></dt><dd>Zeitraum, erscheint als Balken</dd>
         <dt><code>44 v. Chr.</code></dt><dd>vor Christus. Ein Jahr 0 gibt es nicht.</dd>
+        <dt><code>15. Jh.</code> <code>frühes 16. Jh.</code></dt><dd>Jahrhundert, erscheint als Balken</dd>
         <dt><code>um 1450</code></dt><dd>ungefähre Angabe</dd>
         <dt><code>1949–heute</code></dt><dd>Zeitraum bis zum heutigen Tag</dd>
         <dt><code># Notiz</code></dt><dd>erscheint nicht im Zeitstrahl</dd>
@@ -197,7 +202,8 @@
 <dialog id="abgaben" class="review" aria-labelledby="abgaben-title">
   <div class="review-head">
     <h2 id="abgaben-title">Schüler-Zeitstrahlen</h2>
-    <p>Zum Zeigen auswählen. Im Tafelbild blätterst du mit „Nächster Zeitstrahl“ durch alle Zeitstrahlen eines Themas.</p>
+    <p>Zum Zeigen auswählen. Im Tafelbild blätterst du mit „Nächster Zeitstrahl“ durch alle Zeitstrahlen eines Themas. Mit „Rückmeldung“ schreibst du einer Gruppe einen kurzen Kommentar, den sie auf dem iPad sieht.</p>
+    <p class="sperre-chip" id="abgaben-sperre" hidden>Abgabe beendet: Die iPads können gerade nichts mehr speichern.</p>
   </div>
   <div class="abgaben-list" id="abgaben-list"></div>
   <div class="review-foot">
@@ -218,9 +224,11 @@
     </div>
     <div class="task-actions">
       <button type="submit" class="btn primary">Thema festlegen</button>
+      <button type="button" class="btn" id="btn-sperre">Abgabe beenden</button>
       <span class="task-state" id="task-state" role="status"></span>
     </div>
   </form>
+  <p class="sperre-note" id="sperre-note" hidden>Die iPads können gerade nichts mehr speichern. Zum Weiterarbeiten auf „Bearbeiten wieder erlauben“ klicken.</p>
   <div class="connect-grid" id="connect-grid">
     <div id="connect-qr" class="connect-qr"></div>
     <div class="connect-text">
@@ -255,6 +263,21 @@
   </div>
 </dialog>
 
+<dialog id="sort" class="review sort" aria-labelledby="sort-title">
+  <div class="review-head">
+    <h2 id="sort-title">Was kam zuerst?</h2>
+    <p>Die Ereignisse stehen durcheinander. Bringt sie in die richtige Reihenfolge: oben das älteste, unten das jüngste. Verschieben mit den Pfeilen oder mit der Maus.</p>
+  </div>
+  <ol class="sort-list" id="sort-list"></ol>
+  <p class="sort-result" id="sort-result" role="status"></p>
+  <div class="review-foot">
+    <button type="button" class="btn ghost" id="sort-new">Neu mischen</button>
+    <button type="button" class="btn ghost" id="sort-solve">Lösung zeigen</button>
+    <button type="button" class="btn primary" id="sort-check">Prüfen</button>
+    <button type="button" class="btn" id="sort-close">Schließen</button>
+  </div>
+</dialog>
+
 <dialog id="samples" class="review ask" aria-labelledby="samples-title">
   <div class="review-head">
     <h2 id="samples-title">Beispiel öffnen</h2>
@@ -280,6 +303,8 @@
     </div>
   </form>
 </dialog>
+
+<div id="print-area" class="print-area" aria-hidden="true"></div>
 
 <div id="toast" class="toast" role="status" hidden></div>
 

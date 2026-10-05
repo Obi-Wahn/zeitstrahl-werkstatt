@@ -403,18 +403,27 @@ const tooManyWrongLogins = limiter(LOGIN_TRIES);
 async function readTask() {
   try {
     const d = JSON.parse(await fsp.readFile(TASK, 'utf8'));
-    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000) };
+    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), gesperrt: d.gesperrt === true };
   } catch (e) {
-    return { thema: '', auftrag: '' };
+    return { thema: '', auftrag: '', gesperrt: false };
   }
 }
 
 async function saveTask(req, res) {
   const d = await readJson(req, 64 * 1024);
-  const task = { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), aktualisiert: new Date().toISOString() };
+  const alt = await readTask();
+  // Nur das Schloss umlegen: Thema und Auftrag bleiben, wie sie sind
+  const nurSperre = d.thema === undefined && d.auftrag === undefined;
+  const task = {
+    thema: nurSperre ? alt.thema : str(d.thema, 140),
+    auftrag: nurSperre ? alt.auftrag : str(d.auftrag, 1000),
+    gesperrt: d.gesperrt === true,
+    aktualisiert: new Date().toISOString(),
+  };
   await fsp.mkdir(DATA, { recursive: true });
   await writeAtomic(TASK, JSON.stringify(task));
-  console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`);
+  if (nurSperre) console.log(`${time()}  ${task.gesperrt ? 'Abgabe beendet' : 'Bearbeiten wieder erlaubt'}: „${task.thema || '(ohne Thema)'}“`);
+  else console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`);
   sendJson(res, 200, task);
 }
 
@@ -440,6 +449,7 @@ function summary(a, datei) {
     titel: a.titel,
     von: a.von,
     status: a.status,
+    rueckmeldung: str(a.rueckmeldung, 1000),
     anzahl: a.eintraege.length,
     bilder: a.eintraege.filter((e) => e.bild).length,
     erstellt: a.erstellt,
@@ -488,6 +498,9 @@ function cleanEntries(list) {
 async function saveAbgabe(req, res) {
   if (tooManySaves(req)) return sendJson(res, 429, { fehler: 'Zu viele Speichervorgänge. Bitte kurz warten.' });
   const d = await readJson(req, MAX_SUBMISSION);
+  if ((await readTask()).gesperrt) {
+    return sendJson(res, 423, { gesperrt: true, fehler: 'Die Lehrkraft hat die Abgabe beendet. Ihr könnt gerade nichts mehr speichern.' });
+  }
   const von = str(d.von, 120);
   const eintraege = cleanEntries(d.eintraege);
   if (!von) return sendJson(res, 400, { fehler: 'Bitte bei „Erstellt von“ eure Vornamen eintragen.' });
@@ -511,6 +524,7 @@ async function saveAbgabe(req, res) {
     titel: str(d.titel, 140),
     von,
     status: d.status === 'abgegeben' ? 'abgegeben' : 'entwurf',
+    rueckmeldung: old ? old.rueckmeldung || '' : '',
     erstellt: old ? old.erstellt : now,
     aktualisiert: now,
     eintraege,
@@ -545,6 +559,41 @@ async function loadByCode(req, res, raw) {
     return sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl. Bitte den Code prüfen.' });
   }
   return sendAbgabe(res, hit.id);
+}
+
+// Die Lehrkraft schreibt der Gruppe eine kurze Rückmeldung. Die Gruppe sieht sie
+// auf der Schülerseite, sobald sie mit ihrem Code arbeitet.
+async function saveRueckmeldung(req, res, id) {
+  if (!index.has(id)) return sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
+  const d = await readJson(req, 64 * 1024);
+  const text = str(d.rueckmeldung, 1000);
+  const datei = index.get(id).datei;
+  const file = path.join(ABGABEN, datei);
+  let abgabe;
+  try {
+    abgabe = JSON.parse(await fsp.readFile(file, 'utf8'));
+  } catch (e) {
+    return sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
+  }
+  abgabe.rueckmeldung = text;
+  abgabe.rueckmeldungAm = text ? new Date().toISOString() : '';
+  await writeAtomic(file, JSON.stringify(abgabe));
+  index.set(id, summary(abgabe, datei));
+  console.log(`${time()}  Rückmeldung für „${abgabe.titel || abgabe.thema}“ von ${abgabe.von}: ${text ? `„${text}“` : '(entfernt)'}`);
+  sendJson(res, 200, { ok: true, rueckmeldung: text });
+}
+
+// Kurzer Stand für die Schülerseite: Ist die Abgabe beendet? Gibt es eine Rückmeldung?
+async function sendStand(req, res, raw) {
+  if (tooManyWrongCodes(req, false)) return sendJson(res, 429, { fehler: 'Zu viele falsche Codes. Bitte eine Minute warten.' });
+  const code = String(raw).toUpperCase();
+  const hit = CODE_RX.test(code) ? [...index.values()].find((x) => x.code === code) : null;
+  if (!hit) {
+    tooManyWrongCodes(req);
+    return sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl.' });
+  }
+  const task = await readTask();
+  sendJson(res, 200, { status: hit.status, aktualisiert: hit.aktualisiert, rueckmeldung: hit.rueckmeldung || '', gesperrt: task.gesperrt });
 }
 
 async function archiveAbgabe(res, id) {
@@ -803,6 +852,7 @@ async function handle(req, res) {
   if (p === '/api/aufgabe' && m === 'GET') return sendJson(res, 200, await readTask());
   if (p === '/api/abgaben' && m === 'POST') return saveAbgabe(req, res);
   if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})$/)) && m === 'GET') return loadByCode(req, res, mm[1]);
+  if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})\/stand$/)) && m === 'GET') return sendStand(req, res, mm[1]);
 
   // Anmelden an einem anderen Gerät (Lehrer-PC)
   if (p === '/lehrkraft' || p === '/lehrkraft/') {
@@ -836,6 +886,7 @@ async function handle(req, res) {
       if (m === 'GET') return sendAbgabe(res, mm[1]);
       if (m === 'DELETE') return archiveAbgabe(res, mm[1]);
     }
+    if ((mm = p.match(/^\/api\/abgaben\/([a-f0-9]{16})\/rueckmeldung$/)) && m === 'PUT') return saveRueckmeldung(req, res, mm[1]);
     if (p === '/api/sicherung' && m === 'GET') return loadBackup(res);
     if (p === '/api/sicherung' && m === 'PUT') return saveBackup(req, res);
     return sendJson(res, 404, { fehler: 'Unbekannte Anfrage.' });

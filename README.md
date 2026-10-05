@@ -29,11 +29,13 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 3. **iPads verbinden:** Die Schülerinnen und Schüler scannen den QR-Code mit der Kamera-App und landen auf der Schülerseite. Dort stehen schon das Thema und der Arbeitsauftrag.
 4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
 5. **Zwischenspeichern:** Beim ersten **Zwischenspeichern** bekommt die Gruppe einen **Code** aus fünf Zeichen (z. B. `K7M2X`), den sie aufschreibt. Danach speichert die Seite alle 15 Sekunden automatisch. In der nächsten Stunde, auch auf einem anderen iPad, tippt die Gruppe den Code unter „Mit eurem Code weiterarbeiten“ ein und macht weiter.
-6. **Abgeben:** Ist der Zeitstrahl fertig, tippt die Gruppe auf **Fertig – abgeben**. Verbessern und erneut abgeben geht jederzeit.
-7. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen** die Abgaben mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“. Ist ein Schüler-Zeitstrahl ausgewählt, zeigt die rechte Spalte das Thema, den Arbeitsauftrag und alle Gruppen dazu, per Klick wechselt man zur nächsten Gruppe.
-8. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl.
-9. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
-10. **Beenden:** Das Server-Fenster schließen.
+6. **Abgeben:** Ist der Zeitstrahl fertig, tippt die Gruppe auf **Fertig – abgeben**. Verbessern und erneut abgeben geht jederzeit. Fällt das WLAN aus, sagt die Seite das deutlich; die Eingaben bleiben auf dem iPad und werden gespeichert, sobald die Verbindung wieder da ist. Eine Rückmeldung der Lehrkraft erscheint oben auf der Seite.
+7. **Abgabe beenden:** Vor dem Präsentieren unter **iPads verbinden** auf **Abgabe beenden** klicken. Dann kann keine Gruppe mehr speichern, und auf den iPads steht, dass die Abgabe beendet ist. **Bearbeiten wieder erlauben** hebt das auf.
+8. **Rückmeldung geben:** In der Übersicht **Schüler-Zeitstrahlen** hat jede Gruppe einen Knopf **Rückmeldung**. Der Text erscheint auf dem iPad der Gruppe, sobald sie mit ihrem Code arbeitet, spätestens nach wenigen Sekunden.
+9. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen** die Abgaben mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“. Ist ein Schüler-Zeitstrahl ausgewählt, zeigt die rechte Spalte das Thema, den Arbeitsauftrag und alle Gruppen dazu, per Klick wechselt man zur nächsten Gruppe.
+10. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl. **Was kam zuerst?** mischt die Ereignisse des gezeigten Zeitstrahls; die Klasse bringt sie an der Tafel in die richtige Reihenfolge, **Prüfen** zeigt, was schon stimmt.
+11. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
+12. **Beenden:** Das Server-Fenster schließen.
 
 ### Tafelbild am Lehrer-PC, wenn der Laptop nicht am Beamer hängt
 
@@ -100,8 +102,9 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Details | Klick auf einen Eintrag zeigt Datum, „vor … Jahren“, Dauer, Beschreibung, Bild, Verfasser und Bildquelle. Bilder lassen sich dort auch selbst hinzufügen. |
 | Tafelbild | Vollbild für den Beamer, große Schrift. **Schrittweise aufdecken** blättert in zeitlicher Reihenfolge (Pfeiltasten, Leertaste oder Presenter). |
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
-| Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
-| Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
+| Arbeitsblatt | Sichtbaren Ausschnitt als PNG sichern oder über **Datei → Zeitstrahl drucken** direkt auf A4 quer drucken. Das **Lückenbild** zeigt nur die Daten mit Leerzeilen zum Ausfüllen. |
+| Übung | **Was kam zuerst?** im Tafelbild: Die Ereignisse stehen gemischt, die Klasse sortiert sie per Pfeil oder Ziehen, **Prüfen** und **Lösung zeigen** helfen weiter. |
+| Schüler-Zeitstrahlen | Thema und Arbeitsauftrag vorgeben, Abgabe beenden, je Gruppe eine Rückmeldung schreiben, Abgaben mit Stand und Code im Überblick, im Tafelbild nacheinander zeigen, in eigene Zeitstrahlen kopieren. |
 | Speichern | Automatisch im Browser und, wenn der Server läuft, zusätzlich je Zeitstrahl als Datei in `daten/zeitstrahlen/` mit Tageskopien. Alle sichern als ZIP. Einlesen von .txt, .json, .csv und .zip. |
 
 ## Schreibweise der Einträge
@@ -120,6 +123,7 @@ Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung. �
 | `31.10.1517` oder `9. November 1918` | genauer Tag |
 | `September 1522` | Monat |
 | `1618–1648`, `1618-1648` oder `1618 bis 1648` | Zeitraum (Balken) |
+| `15. Jh.`, `15. Jahrhundert`, `frühes 16. Jh.` oder `14.–16. Jh.` | Jahrhundert als Zeitraum (1401–1500) |
 | `44 v. Chr.` | vor Christus. Ein Jahr 0 gibt es nicht. |
 | `7–4 v. Chr.` | Zeitraum vor Christus |
 | `um 1450` oder `ca. 1450` | ungefähre Angabe |
@@ -134,8 +138,8 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
 
 - **Keine Cloud, keine Konten:** Der Server läuft nur auf dem Laptop und nur, solange das Fenster offen ist.
 - **Daten im Ordner `daten/`:**
-  - `aufgabe.json`: das aktuelle Thema und der Arbeitsauftrag
-  - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei wie `reformation-lena-und-tom-K7M2X.json` (Thema, Vornamen, Code)
+  - `aufgabe.json`: das aktuelle Thema, der Arbeitsauftrag und ob die Abgabe beendet ist
+  - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei wie `reformation-lena-und-tom-K7M2X.json` (Thema, Vornamen, Code, Rückmeldung der Lehrkraft)
   - `archiv/`: gelöschte Abgaben
   - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`
   - `sicherungen/`: je Tag eine Kopie davon, die letzten 14
@@ -173,7 +177,7 @@ Mögliche Anknüpfungspunkte im Unterricht:
 - **Parser und reguläre Ausdrücke:** Wie erkennt `parseDate()` „9. November 1918“? Welche Eingaben scheitern?
 - **Zeitrechnung ohne Jahr 0:** Intern zählt der Parser „astronomisch“ (1 v. Chr. = 0). Warum ist das praktisch?
 - **Greedy-Algorithmus:** `layout()` verteilt Beschriftungen auf Spuren, damit sich nichts überlappt.
-- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für Jahrhunderte („15. Jh.“) als Erweiterung.
+- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“.
 
 ## Beispiele
 

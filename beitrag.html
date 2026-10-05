@@ -38,6 +38,13 @@
     </ol>
   </section>
 
+  <p class="offline-msg" id="offline-msg" role="status" hidden>Keine Verbindung zum Laptop der Lehrkraft. Eure Eingaben bleiben auf dem iPad und werden gespeichert, sobald die Verbindung wieder da ist.</p>
+
+  <section class="card feedback-card" id="feedback-card" aria-labelledby="feedback-title" hidden>
+    <h2 id="feedback-title">Rückmeldung eurer Lehrkraft</h2>
+    <p class="feedback-text" id="feedback-text"></p>
+  </section>
+
   <section class="card" aria-labelledby="group-title">
     <h2 id="group-title" class="vh">Angaben zum Zeitstrahl</h2>
     <div class="row3">
@@ -78,6 +85,7 @@
             <dt><code>1517</code></dt><dd>Jahr</dd>
             <dt><code>31.10.1517</code> <code>9. November 1918</code></dt><dd>genauer Tag</dd>
             <dt><code>September 1522</code></dt><dd>Monat</dd>
+            <dt><code>15. Jh.</code></dt><dd>Jahrhundert</dd>
             <dt><code>1618–1648</code> <code>1618 bis 1648</code></dt><dd>Zeitraum, erscheint als Balken</dd>
             <dt><code>44 v. Chr.</code></dt><dd>vor Christus. Ein Jahr 0 gibt es nicht.</dd>
             <dt><code>um 1450</code></dt><dd>ungefähre Angabe</dd>
@@ -147,6 +155,7 @@
   <section class="card save-card" aria-labelledby="save-title">
     <h2 id="save-title">Speichern und abgeben</h2>
     <p class="status-line" id="save-status" role="status" aria-live="polite"></p>
+    <p class="locked-msg" id="locked-msg" hidden>Eure Lehrkraft hat die Abgabe beendet. Ihr könnt gerade nichts mehr speichern.</p>
     <p class="submitted" id="submitted-msg" hidden>Abgegeben! Eure Lehrkraft kann euren Zeitstrahl jetzt zeigen. Ihr dürft ihn weiter verbessern und erneut abgeben.</p>
     <div class="code-box" id="code-box" hidden>
       <span class="code-label">Euer Code</span>

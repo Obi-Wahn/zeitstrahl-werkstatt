@@ -89,6 +89,47 @@ test('bis heute', () => {
   assert.equal(P.fmtShort(r.b), 'heute');
 });
 
+test('Jahrhundert wird zum Zeitraum', () => {
+  const r = P.parseDateField('15. Jh.', NOW);
+  assert.equal(r.kind, 'span');
+  assert.equal(r.start, 1401);
+  assert.equal(r.end, 1501);
+  assert.equal(r.label, '15. Jh.');
+});
+
+test('Jahrhundert ausgeschrieben und mit n. Chr.', () => {
+  assert.equal(P.parseDateField('15. Jahrhundert', NOW).start, 1401);
+  assert.equal(P.parseDateField('13. Jh. n. Chr.', NOW).end, 1301);
+});
+
+test('frühes, Mitte und spätes Jahrhundert', () => {
+  assert.equal(P.parseDateField('frühes 16. Jh.', NOW).end, 1534);
+  assert.equal(P.parseDateField('Mitte 16. Jh.', NOW).start, 1534);
+  assert.equal(P.parseDateField('spätes 16. Jh.', NOW).start, 1567);
+});
+
+test('Jahrhundert vor Christus zählt rückwärts', () => {
+  const r = P.parseDateField('5. Jh. v. Chr.', NOW);
+  assert.equal(r.a.y, 500);
+  assert.equal(r.b.y, 401);
+  assert.equal(r.a.bc, true);
+  assert.equal(r.end - r.start, 100);
+});
+
+test('Bereich über mehrere Jahrhunderte', () => {
+  const r = P.parseDateField('14.–16. Jh.', NOW);
+  assert.equal(r.start, 1301);
+  assert.equal(r.end, 1601);
+  assert.equal(r.label, '14.–16. Jh.');
+});
+
+test('Jahrhundert im Zeitstrahl bekommt sein Label', () => {
+  const it = P.parseSource('15. Jh.; Buchdruck; Technik', NOW).items[0];
+  assert.equal(it.kind, 'span');
+  assert.equal(it.shortDate, '15. Jh.');
+  assert.match(it.longDate, /15\. Jahrhundert \(1401–1500\)/);
+});
+
 test('Ende vor Anfang wird gemeldet', () => {
   assert.match(P.parseDateField('1648–1618', NOW).error, /vor dem Anfang/);
 });
