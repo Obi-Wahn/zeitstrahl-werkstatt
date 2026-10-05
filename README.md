@@ -168,7 +168,7 @@ js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
-tests/               Tests für Parser, Layout und ZIP, alle zusammen: npm test
+tests/               Tests für Parser, Layout, ZIP und Server, alle zusammen: npm test
 ```
 
 Mögliche Anknüpfungspunkte im Unterricht:
@@ -177,7 +177,7 @@ Mögliche Anknüpfungspunkte im Unterricht:
 - **Parser und reguläre Ausdrücke:** Wie erkennt `parseDate()` „9. November 1918“? Welche Eingaben scheitern?
 - **Zeitrechnung ohne Jahr 0:** Intern zählt der Parser „astronomisch“ (1 v. Chr. = 0). Warum ist das praktisch?
 - **Greedy-Algorithmus:** `layout()` verteilt Beschriftungen auf Spuren, damit sich nichts überlappt.
-- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“. `tests/layout.test.js` prüft mit zufälligen Ereignissen, dass sich nie zwei Fähnchen überdecken. `npm test` startet alle Tests, und GitHub lässt sie bei jedem Pull Request automatisch laufen.
+- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“. `tests/layout.test.js` prüft mit zufälligen Ereignissen, dass sich nie zwei Fähnchen überdecken. `tests/server.test.js` startet den Server in einem leeren Ordner und spielt Abläufe aus dem Unterricht durch: speichern und mit Code weiterarbeiten, Abgabe beenden, Rückmeldung, Anmelden am Lehrer-PC, gleichzeitiges Speichern. `npm test` startet alle Tests, und GitHub lässt sie bei jedem Pull Request automatisch laufen.
 
 ## Beispiele
 
