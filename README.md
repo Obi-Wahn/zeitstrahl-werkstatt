@@ -93,7 +93,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 
 ## Sichern, weitergeben, einlesen
 
-- **Mit Server** liegt jeder Zeitstrahl zusätzlich als eigene Datei in `daten/zeitstrahlen/`, benannt nach seinem Titel (z. B. `weimarer-republik.json`). Jede Datei lässt sich über **Datei → Öffnen** einlesen oder weitergeben. Gelöschte Zeitstrahlen wandern nach `daten/zeitstrahlen/geloescht/`. Vor der ersten Änderung eines Tages legt der Server den bisherigen Stand als Tageskopie in einem Ordner wie `daten/sicherungen/2026-10-05/` ab, die letzten 14 bleiben liegen. Eine frühere `daten/sicherung.json` wird beim ersten Start einmalig in Einzeldateien aufgeteilt und bleibt als `sicherung-alt.json` liegen.
+- **Mit Server** liegt jeder Zeitstrahl zusätzlich als eigene Datei in `daten/zeitstrahlen/`, benannt nach seinem Titel (z. B. `weimarer-republik.json`). Jede Datei lässt sich über **Datei → Öffnen** einlesen oder weitergeben. Gelöschte Zeitstrahlen wandern nach `daten/zeitstrahlen/geloescht/`. Vor der ersten Änderung eines Tages legt der Server den bisherigen Stand als Tageskopie in einem Ordner wie `daten/sicherungen/2026-10-05/` ab, die letzten 14 bleiben liegen. Eine frühere `daten/sicherung.json` wird beim ersten Start einmalig in Einzeldateien aufgeteilt und bleibt als `sicherung-alt.json` liegen. Es gilt nur der Ordner `daten`: Ist er leer, etwa nach einem neuen Download, startet die Lehrkraft-Ansicht leer, auch wenn der Browser noch Zeitstrahlen von früher kennt.
 - **Alles auf einmal sichern**, auch die Schülerarbeiten: den Ordner `daten` kopieren, z. B. auf einen USB-Stick.
 - **Ohne Server** liegt alles nur im Browser. Die Werkstatt bittet den Browser, die Daten dauerhaft zu behalten. Gab es seit sieben Tagen Änderungen ohne Sicherung als Datei, erscheint oben **Jetzt sichern**.
 - **Alle Zeitstrahlen sichern** speichert eine ZIP-Datei, darin je Zeitstrahl eine eigene .json-Datei mit Bildern. Beim Öffnen der ZIP-Datei (oder einer älteren .json-Sicherung) einer solchen Sicherung fragt die Werkstatt: **Hinzufügen** legt nur fehlende Zeitstrahlen an, **Ersetzen** stellt genau den Stand der Sicherung her.
@@ -176,12 +176,13 @@ js/parser.js         Text → Einträge: Datumsformate, v. Chr., Zeiträume, Kat
 js/layout.js         Einträge → Positionen: Skala, Spuren gegen Überlappung, SVG
 js/bild.js           Bilder im Browser verkleinern (höchstens 1000 px)
 js/zip.js            ZIP-Dateien packen und lesen, ohne Zusatzbibliothek
+js/stand.js          Beim Start den gespeicherten Stand wählen (mit Server nur der Ordner daten)
 js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
 docs/bilder/         Bilder für diese Beschreibung
-tests/               Tests für Parser, Layout, ZIP und Server, alle zusammen: npm test
+tests/               Tests für Parser, Layout, ZIP, Startstand und Server, alle zusammen: npm test
 ```
 
 Mögliche Anknüpfungspunkte im Unterricht:
