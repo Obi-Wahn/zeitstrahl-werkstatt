@@ -719,6 +719,7 @@ body.present .detail-img { max-height: 46vh; }
 .student textarea { min-height: 120px; font-family: var(--f-ui); font-size: 16px; line-height: 1.5; }
 .student input[type="text"] { font-size: 16px; }
 .student .btn { font-size: 15px; padding: 10px 16px; }
+.student .btn.icon { width: 44px; height: 44px; padding: 0; }
 .sent {
   margin: 0;
   padding: 12px 14px;
