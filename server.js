@@ -953,10 +953,14 @@ async function askPassword(firstStart) {
   if (firstStart) {
     console.log('  Mit einem Passwort lässt sich die Lehrkraft-Ansicht auch an einem anderen Gerät');
     console.log('  im Netz öffnen, z. B. am Lehrer-PC am Beamer. Die Eingabe bleibt unsichtbar.');
+    console.log('  Das Passwort geht unverschlüsselt durchs Schulnetz. Deshalb bitte eines wählen,');
+    console.log('  das sonst nirgends benutzt wird.');
     console.log('  Ohne Passwort einfach Enter drücken: Dann geht die Lehrkraft-Ansicht nur an diesem Laptop.');
     console.log('  Später festlegen oder ändern: node server.js --passwort\n');
   } else {
     console.log('  Neues Passwort für die Lehrkraft-Ansicht an anderen Geräten. Die Eingabe bleibt unsichtbar.');
+    console.log('  Das Passwort geht unverschlüsselt durchs Schulnetz. Deshalb bitte eines wählen,');
+    console.log('  das sonst nirgends benutzt wird.');
     console.log('  Nur Enter: kein Passwort, die Lehrkraft-Ansicht geht dann nur an diesem Laptop.\n');
   }
   for (;;) {
