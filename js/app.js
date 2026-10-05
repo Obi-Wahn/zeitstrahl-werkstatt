@@ -9,6 +9,7 @@
   const Parser = window.ZeitstrahlParser;
   const Layout = window.ZeitstrahlLayout;
   const Bild = window.ZeitstrahlBild;
+  const Zip = window.ZeitstrahlZip;
   const SAMPLES = window.ZeitstrahlBeispiele || [];
 
   const DB_NAME = 'zeitstrahl-werkstatt';
@@ -18,6 +19,7 @@
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
   const UNSAVED_KEY = 'zeitstrahl-werkstatt-ungesichert-seit';
   const REMIND_DAYS = 7;
+  const ORDER_FILE = '_reihenfolge.json';
 
   const FAM_SCREEN = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif';
   const FAM_EXPORT = 'Arial, Helvetica, sans-serif';
@@ -199,7 +201,7 @@
     const due = !server.on && days >= REMIND_DAYS;
     const b = $('backup-due');
     b.hidden = !due;
-    if (due) b.title = `Seit ${days} Tagen keine Sicherung als Datei. Speichert alle Zeitstrahlen als .json-Datei.`;
+    if (due) b.title = `Seit ${days} Tagen keine Sicherung als Datei. Speichert alle Zeitstrahlen als ZIP-Datei.`;
     return due ? days : 0;
   }
   function showStatus(pending) {
@@ -1041,19 +1043,36 @@
       : 'Textdatei gesichert.');
   }
 
-  function exportJson(all) {
-    const list = all ? state.timelines : [activeTl()];
-    const data = {
-      typ: 'zeitstrahl-sicherung',
-      version: 1,
-      alle: all,
-      gesichert: new Date().toISOString(),
-      timelines: list.map((t) => ({ name: t.name, source: t.source, images: usedImages(t) })),
-    };
-    const name = all ? 'zeitstrahl-werkstatt-sicherung' : slug(activeTl().name);
-    download(name + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
-    if (all) markBackedUp();
-    toast(all ? 'Alle Zeitstrahlen gesichert.' : 'Zeitstrahl mit Bildern gesichert.');
+  // Eine Datei mit einem Zeitstrahl samt Bildern, lesbar über „Datei → Öffnen“
+  const timelineJson = (t) => JSON.stringify({
+    typ: 'zeitstrahl-sicherung',
+    version: 1,
+    gesichert: new Date().toISOString(),
+    timelines: [{ name: t.name, source: t.source, images: usedImages(t) }],
+  }, null, 1);
+
+  function exportJson() {
+    const t = activeTl();
+    download(slug(t.name) + '.json', new Blob([timelineJson(t)], { type: 'application/json' }));
+    toast('Zeitstrahl mit Bildern gesichert.');
+  }
+
+  // Alle Zeitstrahlen als ZIP-Datei, darin je Zeitstrahl eine eigene .json-Datei
+  function exportAll() {
+    const enc = new TextEncoder();
+    const taken = new Set([ORDER_FILE]);
+    const files = state.timelines.map((t) => {
+      let name = slug(t.name) + '.json';
+      for (let i = 2; taken.has(name); i++) name = `${slug(t.name)}-${i}.json`;
+      taken.add(name);
+      return { name, data: enc.encode(timelineJson(t)) };
+    });
+    // Reihenfolge der Zeitstrahlen, damit sie beim Zurückspielen gleich bleibt
+    files.push({ name: ORDER_FILE, data: enc.encode(JSON.stringify({ reihenfolge: files.map((f) => f.name) })) });
+    const day = new Date().toISOString().slice(0, 10);
+    download(`zeitstrahl-werkstatt-sicherung-${day}.zip`, new Blob([Zip.erstellen(files)], { type: 'application/zip' }));
+    markBackedUp();
+    toast(state.timelines.length === 1 ? 'Der Zeitstrahl wurde als ZIP-Datei gesichert.' : `Alle ${state.timelines.length} Zeitstrahlen als ZIP-Datei gesichert.`);
   }
 
   function exportSvg(blank) {
@@ -1131,7 +1150,45 @@
 
   // Liest eine Datei und liefert die enthaltenen Zeitstrahlen.
   // backup: die Datei ist eine Sicherung mehrerer Zeitstrahlen
+  // Zeitstrahlen aus einer .json-Sicherung
+  function timelinesOf(data) {
+    return data.timelines.filter(isTl).map((t) => ({ name: t.name, source: t.source, images: cleanImages(t.images) }));
+  }
+
+  // ZIP-Datei von „Alle Zeitstrahlen sichern“ oder ein gepackter Ordner mit .json-Dateien
+  async function readZip(file) {
+    let entries;
+    try { entries = await Zip.lesen(await file.arrayBuffer()); } catch (e) { throw new Error(`${file.name}: ${e.message}`); }
+    const dec = new TextDecoder('utf-8');
+    const base = (n) => n.split('/').pop();
+    let order = [];
+    const found = [];
+    for (const e of entries) {
+      if (!/\.json$/i.test(e.name) || base(e.name).startsWith('.')) continue;
+      let data = null;
+      try { data = JSON.parse(dec.decode(e.data).replace(/^\uFEFF/, '')); } catch (err) { continue; }
+      if (base(e.name) === ORDER_FILE) {
+        if (isObj(data) && Array.isArray(data.reihenfolge)) order = data.reihenfolge;
+      } else if (isObj(data) && Array.isArray(data.timelines)) {
+        found.push({ file: base(e.name), list: timelinesOf(data) });
+      }
+    }
+    const pos = (f) => {
+      const i = order.indexOf(f.file);
+      return i < 0 ? Infinity : i;
+    };
+    found.sort((a, b) => pos(a) - pos(b));
+    const list = found.flatMap((f) => f.list);
+    if (!list.length) throw new Error(`${file.name} enthält keine Zeitstrahlen.`);
+    return { backup: true, list };
+  }
+
   async function readFile(file) {
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+    if (/\.zip$/i.test(file.name) || (head[0] === 0x50 && head[1] === 0x4B && head[2] === 3 && head[3] === 4)) {
+      if (file.size > 400 * 1024 * 1024) throw new Error(`${file.name} ist zu groß.`);
+      return readZip(file);
+    }
     if (file.size > 80 * 1024 * 1024) throw new Error(`${file.name} ist zu groß.`);
     let text;
     try { text = await readText(file); } catch (e) { throw new Error(`${file.name} lässt sich nicht lesen.`); }
@@ -1156,7 +1213,7 @@
         return { backup: false, list: [{ name: tl.name || 'Schüler-Zeitstrahl', source: tl.source, images: tl.images }] };
       }
       if (isObj(data) && Array.isArray(data.timelines)) {
-        const list = data.timelines.filter(isTl).map((t) => ({ name: t.name, source: t.source, images: cleanImages(t.images) }));
+        const list = timelinesOf(data);
         // „Alle Zeitstrahlen sichern“, die Tagessicherungen des Servers und ältere Sicherungen mit mehreren Zeitstrahlen
         return { backup: data.alle === true || data.app === 'zeitstrahl-werkstatt' || list.length > 1, list };
       }
@@ -1518,8 +1575,8 @@
       const act = b.dataset.act;
       if (act === 'import') $('file-input').click();
       else if (act === 'export-txt') exportTxt();
-      else if (act === 'export-json') exportJson(false);
-      else if (act === 'export-backup') exportJson(true);
+      else if (act === 'export-json') exportJson();
+      else if (act === 'export-backup') exportAll();
       else if (act === 'export-png') exportPng(false);
       else if (act === 'export-png-blank') exportPng(true);
       else if (act === 'add-samples') {
@@ -1528,7 +1585,7 @@
         if (last) { switchTo(last.id); toast('Beispiele hinzugefügt.'); }
       }
     });
-    $('backup-due').addEventListener('click', () => exportJson(true));
+    $('backup-due').addEventListener('click', exportAll);
     $('file-input').addEventListener('change', (e) => {
       const files = e.target.files;
       if (files && files.length) importFiles(files).finally(() => { e.target.value = ''; });

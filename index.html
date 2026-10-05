@@ -37,7 +37,7 @@
       <div class="menu">
         <button type="button" id="btn-file" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu">Datei</button>
         <div id="file-menu" class="menu-list" role="menu" hidden>
-          <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json, .csv)</button>
+          <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json, .csv, .zip)</button>
           <hr>
           <button type="button" role="menuitem" data-act="export-txt">Als Textdatei sichern (.txt)</button>
           <button type="button" role="menuitem" data-act="export-json">Mit Bildern sichern (.json)</button>
@@ -45,10 +45,10 @@
           <button type="button" role="menuitem" data-act="export-png">Ausschnitt als Bild sichern (PNG)</button>
           <button type="button" role="menuitem" data-act="export-png-blank">Lückenbild fürs Arbeitsblatt (PNG)</button>
           <hr>
-          <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.json)</button>
+          <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.zip)</button>
           <button type="button" role="menuitem" data-act="add-samples">Beispiele hinzufügen</button>
         </div>
-        <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,text/plain,application/json,text/csv" multiple hidden>
+        <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,.zip,text/plain,application/json,text/csv,application/zip" multiple hidden>
       </div>
       <button type="button" id="btn-present" class="btn primary">Tafelbild</button>
     </div>
@@ -239,6 +239,7 @@
 <script src="js/parser.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/bild.js"></script>
+<script src="js/zip.js"></script>
 <script src="js/beispiele.js"></script>
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/app.js"></script>
