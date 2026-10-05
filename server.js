@@ -112,13 +112,24 @@ function isTeacher(req) {
 // Der eigene Kopf erzwingt beim Browser eine Rückfrage, die dieser Server nie erlaubt.
 const teacherApi = (req) => isTeacher(req) && req.headers['x-zeitstrahl'] === 'lehrkraft';
 
+// Virtuelle Adapter (VirtualBox, VMware, Hyper-V/WSL, Docker, VPN, Bluetooth) und der
+// Windows-Hotspot („LAN-Verbindung* 10“, 192.168.137.x) sind für die iPads nicht gedacht.
+const VIRTUAL_ADAPTER = /virtualbox|vbox|vmware|vmnet|vethernet|hyper-v|wsl|docker|^br-|virbr|^veth|bluetooth|tailscale|zerotier|wireguard|^utun|^tun|^tap|^awdl|^llw|^bridge|\*\s*\d+$/i;
+// Windows nennt manche virtuellen Adapter nur „Ethernet 2“, sie sind dann an der
+// Hardware-Adresse erkennbar: VirtualBox 0a:00:27/08:00:27, VMware 00:50:56/00:0c:29, Hyper-V 00:15:5d.
+const VIRTUAL_MAC = /^(0a:00:27|08:00:27|00:50:56|00:0c:29|00:05:69|00:1c:14|00:15:5d|02:42)/i;
+const isRealAdapter = (a) => !VIRTUAL_ADAPTER.test(a.name) && !VIRTUAL_MAC.test(a.mac || '') && !/^192\.168\.137\./.test(a.ip);
+
 function lanAddresses() {
-  const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  const all = [];
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const a of list || []) {
-      if (a.family === 'IPv4' && !a.internal) out.push(a.address);
+      if (a.family === 'IPv4' && !a.internal) all.push({ name, ip: a.address, mac: a.mac });
     }
   }
+  // Nur echte WLAN- und LAN-Adapter. Bleibt keiner übrig, lieber alle zeigen als keine.
+  const real = all.filter(isRealAdapter);
+  const out = (real.length ? real : all).map((a) => a.ip);
   // Private Heim- und Schulnetze zuerst
   const rank = (ip) => (/^192\.168\./.test(ip) ? 0 : /^10\./.test(ip) ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 2 : 3);
   return out.sort((a, b) => rank(a) - rank(b));

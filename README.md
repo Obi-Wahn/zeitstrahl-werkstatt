@@ -39,7 +39,7 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 
 - Laptop und iPads müssen im **selben WLAN** sein.
 - **Windows** fragt beim ersten Start, ob Node.js im Netzwerk kommunizieren darf. Dann „Private Netzwerke“ erlauben. Bei einem Schul-WLAN, das Windows als „öffentlich“ einstuft, muss auch „Öffentliche Netzwerke“ erlaubt werden.
-- Viele Schul-WLANs verbieten Verbindungen zwischen Geräten („Client-Isolation“). Dann hilft ein eigenes WLAN: entweder der **mobile Hotspot** des Laptops (Windows: Einstellungen → Netzwerk → Mobiler Hotspot) oder ein Hotspot vom Diensthandy, mit dem sich Laptop und iPads verbinden. Alternativ kann die IT-Betreuung den Laptop freischalten.
+- Viele Schul-WLANs verbieten Verbindungen zwischen Geräten („Client-Isolation“). Dann hilft ein eigenes WLAN, z. B. ein Hotspot vom Diensthandy, mit dem sich Laptop und iPads verbinden. Alternativ kann die IT-Betreuung den Laptop freischalten.
 - Zeigt der Dialog mehrere Adressen, die anderen nacheinander ausprobieren.
 - Die Adresse lässt sich auch in Safari eintippen, z. B. `192.168.178.23:8080`.
 
