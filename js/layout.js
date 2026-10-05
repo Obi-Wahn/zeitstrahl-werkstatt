@@ -40,15 +40,16 @@
       barGap: 6 * s,
       barFont: 14 * s,
       barDate: 12.5 * s,
-      blankW: 110 * s,
     };
   }
 
   const ICON_W = 20; // Platz für das Bild-Symbol (bei Maßstab 1)
 
-  function pointLabelW(it, M, measure, fam, blank) {
-    const title = blank ? M.blankW : measure(it.title, 700, M.labelFont, fam);
-    const icon = it.img && !blank ? ICON_W * M.s : 0;
+  // Die Breiten hängen nie davon ab, ob ein Lückenbild entsteht: Lückenbild und Bild haben
+  // dieselbe Anordnung, im Lückenbild steht nur eine Linie an der Stelle des Titels.
+  function pointLabelW(it, M, measure, fam) {
+    const title = measure(it.title, 700, M.labelFont, fam);
+    const icon = it.img ? ICON_W * M.s : 0;
     return 8 * M.s + measure(it.shortDate, 400, M.dateFont, fam) + 7 * M.s + title + icon + 9 * M.s;
   }
 
@@ -63,9 +64,9 @@
       + `<circle cx="${f(x + 9.5 * s)}" cy="${f(y + 3 * s)}" r="${f(1.1 * s)}" style="fill:${color};stroke:none"/></g>`;
   }
 
-  function spanLabelParts(it, M, measure, fam, blank) {
+  function spanLabelParts(it, M, measure, fam) {
     return {
-      tW: blank ? M.blankW : measure(it.title, 700, M.barFont, fam),
+      tW: measure(it.title, 700, M.barFont, fam),
       dW: measure(it.shortDate, 400, M.barDate, fam),
     };
   }
@@ -145,7 +146,7 @@
 
   /* ---------- Layout ---------- */
 
-  // o: { scale, family, measure, blank }
+  // o: { scale, family, measure }
   function layout(items, view, W, o) {
     const M = metricsFor(o.scale);
     const s = M.s;
@@ -170,7 +171,7 @@
     const points = items.filter((i) => i.kind === 'point').sort((a, b) => a.start - b.start || a.line - b.line);
     for (const it of points) {
       const x = X(it.start);
-      const w = pointLabelW(it, M, measure, fam, o.blank);
+      const w = pointLabelW(it, M, measure, fam);
       if (x + w < -20 || x > W + 20) continue;
       const canFlip = x - w >= 0 && x + w <= W;
       evs.push({ it, x, w, flip: x + w > W && x - w >= 0, canFlip, below: false, dW: measure(it.shortDate, 400, M.dateFont, fam), lane: 0, y: 0 });
@@ -232,7 +233,7 @@
       const x0 = X(it.start);
       const x1 = X(it.end);
       if (x1 < -2 || x0 > W + 2) continue;
-      const { tW, dW } = spanLabelParts(it, M, measure, fam, o.blank);
+      const { tW, dW } = spanLabelParts(it, M, measure, fam);
       const lw = tW + 7 * s + dW;
       let labelX = Math.max(x0, 0);
       if (labelX + lw > W) labelX = Math.max(0, Math.min(x1, W) - lw);
@@ -349,7 +350,7 @@
       if (o.blank) {
         const bx = tx + e.dW + 7 * s;
         text = `<text x="${f(tx)}" y="${f(ty)}" style="font-size:${f(M.dateFont)}px;fill:${paint.soft}">${esc(it.shortDate)}</text>`
-          + `<line x1="${f(bx)}" y1="${f(ty + 2 * s)}" x2="${f(bx + M.blankW)}" y2="${f(ty + 2 * s)}" style="stroke:${paint.soft};stroke-width:1"/>`;
+          + `<line x1="${f(bx)}" y1="${f(ty + 2 * s)}" x2="${f(x + e.w - 9 * s)}" y2="${f(ty + 2 * s)}" style="stroke:${paint.soft};stroke-width:1"/>`;
       } else {
         text = `<text x="${f(tx)}" y="${f(ty)}">`
           + `<tspan style="font-size:${f(M.dateFont)}px;fill:${paint.soft}">${esc(it.shortDate)}</tspan>`

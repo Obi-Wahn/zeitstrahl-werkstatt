@@ -1059,7 +1059,7 @@
     $('empty').hidden = !isEmpty;
     if (isEmpty) { stage.textContent = ''; return; } // ohne Einträge keine Achse, nur der Hinweis
     const items = shownItems();
-    const draw = (scale) => Layout.layout(items, view, W, { scale, family: FAM_SCREEN, measure, blank: false });
+    const draw = (scale) => Layout.layout(items, view, W, { scale, family: FAM_SCREEN, measure });
     let g = draw(present ? PRESENT_SCALE : 1);
     // Im Tafelbild gibt es keinen Platz zum Scrollen: Passt der Zeitstrahl nicht auf den
     // Beamer (z. B. 1024 × 768), wird er so weit verkleinert, bis alles sichtbar ist.
@@ -1518,7 +1518,7 @@
     const room = bottom - top - 40;
 
     // Größten Maßstab suchen, bei dem alles auf die Seite passt
-    const draw = (sc) => Layout.layout(items, view, inner, { scale: sc, family: FAM_EXPORT, measure, blank });
+    const draw = (sc) => Layout.layout(items, view, inner, { scale: sc, family: FAM_EXPORT, measure });
     let lo = 0.8;
     let hi = 1.7;
     let g = draw(lo);
