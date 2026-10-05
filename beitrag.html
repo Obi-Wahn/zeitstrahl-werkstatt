@@ -72,6 +72,19 @@
         <label for="f-datum">Datum <span class="req" aria-hidden="true">*</span></label>
         <input id="f-datum" type="text" maxlength="80" autocomplete="off" required aria-describedby="f-datum-check" placeholder="z. B. 1517, 31.10.1517, 44 v. Chr. oder 1618–1648">
         <span class="check" id="f-datum-check" aria-live="polite"></span>
+        <details class="date-help" id="date-help">
+          <summary>So schreibt ihr das Datum</summary>
+          <dl class="help-list">
+            <dt><code>1517</code></dt><dd>Jahr</dd>
+            <dt><code>31.10.1517</code> <code>9. November 1918</code></dt><dd>genauer Tag</dd>
+            <dt><code>September 1522</code></dt><dd>Monat</dd>
+            <dt><code>1618–1648</code> <code>1618 bis 1648</code></dt><dd>Zeitraum, erscheint als Balken</dd>
+            <dt><code>44 v. Chr.</code></dt><dd>vor Christus. Ein Jahr 0 gibt es nicht.</dd>
+            <dt><code>um 1450</code></dt><dd>ungefähre Angabe</dd>
+            <dt><code>1949–heute</code></dt><dd>Zeitraum bis heute</dd>
+          </dl>
+          <p class="note">Unter dem Feld steht sofort, wie das Datum verstanden wurde.</p>
+        </details>
       </div>
 
       <div class="field">
@@ -92,6 +105,7 @@
           <option value="Personen"></option>
           <option value="Epoche"></option>
         </datalist>
+        <span class="note">Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche haben feste Farben. Eigene Kategorien bekommen automatisch eine Farbe.</span>
       </div>
 
       <div class="field">

@@ -91,8 +91,10 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 Eine Zeile pro Eintrag:
 
 ```
-Datum | Titel | Kategorie | Beschreibung
+Datum; Titel; Kategorie; Beschreibung
 ```
+
+Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung. Ältere Zeilen mit `|` als Trenner funktionieren weiter.
 
 | Datum | Bedeutung |
 | --- | --- |

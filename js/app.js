@@ -121,7 +121,7 @@
   }
   // Beim ersten Start gibt es nur einen leeren Zeitstrahl. Beispiele öffnet man bei Bedarf über „Datei → Beispiel öffnen …“.
   const NEW_NAME = 'Neuer Zeitstrahl';
-  const NEW_SOURCE = '# Datum | Titel | Kategorie | Beschreibung\n';
+  const NEW_SOURCE = '# Datum; Titel; Kategorie; Beschreibung\n';
   function freshState() {
     const id = newId();
     return { activeId: id, timelines: [{ id, name: NEW_NAME, source: NEW_SOURCE, images: {} }] };

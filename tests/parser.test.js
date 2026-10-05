@@ -107,6 +107,27 @@ test('ganze Zeile mit Kategorie und Beschreibung', () => {
   assert.equal(items[0].desc, 'Text mit | Strich');
 });
 
+test('Semikolon als Trenner, weitere Semikolons bleiben in der Beschreibung', () => {
+  const { items, problems } = P.parseSource('1555; Augsburger Religionsfrieden; Politik; Erst Streit; dann Frieden', NOW);
+  assert.equal(problems.length, 0);
+  assert.equal(items[0].title, 'Augsburger Religionsfrieden');
+  assert.equal(items[0].cat, 'Politik');
+  assert.equal(items[0].desc, 'Erst Streit; dann Frieden');
+});
+
+test('alte Zeilen mit „|“ und Semikolon im Text gelten weiter', () => {
+  const { items } = P.parseSource('1517 | Thesen; Anschlag | Religion | A; B\n1521; Worms | Reichstag; Politik', NOW);
+  assert.equal(items[0].title, 'Thesen; Anschlag');
+  assert.equal(items[0].desc, 'A; B');
+  assert.equal(items[1].title, 'Worms | Reichstag');
+  assert.equal(items[1].cat, 'Politik');
+});
+
+test('buildLine macht aus Semikolons in Titel und Kategorie Kommas', () => {
+  assert.equal(P.buildLine({ datum: '1517', titel: 'A; B', kategorie: 'X;Y', beschreibung: 'c; d' }), '1517; A, B; X,Y; c; d');
+  assert.equal(P.buildLine({ datum: '1517', titel: 'A', kategorie: '', beschreibung: '' }), '1517; A; Allgemein');
+});
+
 test('Kommentare und Leerzeilen werden übersprungen', () => {
   const { items } = P.parseSource('# Notiz\n\n1517 | Thesen', NOW);
   assert.equal(items.length, 1);
@@ -128,7 +149,7 @@ test('Zusatzangaben {bild:…} {von:…} {quelle:…}', () => {
 
 test('buildLine macht Formulartext zeilentauglich', () => {
   const line = P.buildLine({ datum: '1517', titel: 'A | B', kategorie: '', beschreibung: 'Zeile 1\nZeile 2 {x}', von: 'Tom', bild: 'b1' });
-  assert.equal(line, '1517 | A / B | Allgemein | Zeile 1 Zeile 2 x {von:Tom} {bild:b1}');
+  assert.equal(line, '1517; A / B; Allgemein; Zeile 1 Zeile 2 x {von:Tom} {bild:b1}');
   const back = P.parseSource(line, NOW).items[0];
   assert.equal(back.title, 'A / B');
   assert.equal(back.img, 'b1');
@@ -221,22 +242,22 @@ console.log('\nTabellen (.csv)');
 
 test('Excel mit Semikolon und Kopfzeile', () => {
   const csv = 'Datum;Ereignis;Kategorie;Beschreibung\r\n1517;Thesenanschlag;Religion;Luther in Wittenberg\r\n1618–1648;Dreißigjähriger Krieg;Politik;\r\n';
-  assert.equal(P.tableToSource(csv), '1517 | Thesenanschlag | Religion | Luther in Wittenberg\n1618–1648 | Dreißigjähriger Krieg | Politik\n');
+  assert.equal(P.tableToSource(csv), '1517; Thesenanschlag; Religion; Luther in Wittenberg\n1618–1648; Dreißigjähriger Krieg; Politik\n');
 });
 
 test('Komma, Anführungszeichen und ohne Kopfzeile', () => {
   const csv = '1521,"Reichstag zu Worms",Politik,"Luther widerruft nicht, sagt ""Hier stehe ich"""\n';
-  assert.equal(P.tableToSource(csv), '1521 | Reichstag zu Worms | Politik | Luther widerruft nicht, sagt "Hier stehe ich"\n');
+  assert.equal(P.tableToSource(csv), '1521; Reichstag zu Worms; Politik; Luther widerruft nicht, sagt "Hier stehe ich"\n');
 });
 
 test('Spalten in anderer Reihenfolge, Senkrechtstrich wird ersetzt', () => {
   const csv = 'Titel\tJahr\tNotiz\nAugsburger Religionsfriede\t1555\tcuius regio | eius religio\n';
-  assert.equal(P.tableToSource(csv), '1555 | Augsburger Religionsfriede | Allgemein | cuius regio / eius religio\n');
+  assert.equal(P.tableToSource(csv), '1555; Augsburger Religionsfriede; Allgemein; cuius regio / eius religio\n');
 });
 
 test('Zeilenumbruch in einer Zelle und leere Zeilen', () => {
   const csv = 'Datum;Titel\n;\n1530;"Confessio\nAugustana"\n\n';
-  assert.equal(P.tableToSource(csv), '1530 | Confessio Augustana | Allgemein\n');
+  assert.equal(P.tableToSource(csv), '1530; Confessio Augustana; Allgemein\n');
   assert.equal(P.parseSource(P.tableToSource(csv), NOW).items.length, 1);
 });
 

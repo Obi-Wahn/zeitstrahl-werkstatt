@@ -199,7 +199,10 @@
     const titel = val('f-ereignis');
     if (!datum) return fail('f-datum', 'Bitte ein Datum eintragen.');
     const info = dateInfo(datum);
-    if (!info.ok) return fail('f-datum', info.text);
+    if (!info.ok) {
+      $('date-help').open = true;
+      return fail('f-datum', info.text);
+    }
     if (!titel) return fail('f-ereignis', 'Bitte das Ereignis benennen.');
     if (bildData && !val('f-quelle')) return fail('f-quelle', 'Bitte angeben, woher das Bild stammt.');
     const e = {
@@ -489,7 +492,7 @@
     const entries = s.source.split(/\r?\n/)
       .filter((l) => l.trim() && !l.trim().startsWith('#'))
       .map((l) => {
-        const [datum = '', titel = '', kategorie = '', beschreibung = ''] = l.split('|').map((x) => x.trim());
+        const [datum = '', titel = '', kategorie = '', beschreibung = ''] = Parser.splitLine(l.trim());
         return { datum, titel, kategorie, beschreibung, bild: '', quelle: '' };
       })
       .filter((e) => e.datum && e.titel);
