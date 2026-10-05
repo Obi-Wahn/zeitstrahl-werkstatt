@@ -41,7 +41,7 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 
 Hängt nur der Lehrer-PC am Beamer oder Smartboard, öffnet man dort dieselbe Lehrkraft-Ansicht wie am Laptop. Der Server läuft weiter auf dem Laptop, beide Geräte müssen im selben Netz sein.
 
-1. **Passwort festlegen:** Beim ersten Start fragt das Server-Fenster nach einem Passwort (mindestens 6 Zeichen, zweimal eingeben, die Eingabe bleibt unsichtbar). Nur Enter heißt: kein Passwort, die Lehrkraft-Ansicht geht dann nur am Laptop. Festlegen, ändern oder entfernen geht jederzeit mit
+1. **Passwort festlegen:** Beim ersten Start fragt das Server-Fenster nach einem Passwort (mindestens 6 Zeichen, zweimal eingeben, die Eingabe bleibt unsichtbar). Nur Enter heißt: kein Passwort, die Lehrkraft-Ansicht geht dann nur am Laptop. Weil die Verbindung im Schulnetz unverschlüsselt ist, ein Passwort nehmen, das sonst nirgends benutzt wird. Festlegen, ändern oder entfernen geht jederzeit mit
 
    ```
    node server.js --passwort
@@ -168,16 +168,16 @@ js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
-tests/               node tests/parser.test.js und node tests/zip.test.js
+tests/               Tests für Parser, Layout und ZIP, alle zusammen: npm test
 ```
 
 Mögliche Anknüpfungspunkte im Unterricht:
 
-- **Client und Server:** Was schickt das iPad an `/api/abgaben`? Warum darf nur `localhost` die Liste aller Abgaben lesen? Wie schützt der Code einen Zeitstrahl vor fremden Änderungen?
+- **Client und Server:** Was schickt das iPad an `/api/abgaben`? Warum darf nur der Laptop selbst (`localhost`) oder ein mit Passwort angemeldetes Gerät die Liste aller Abgaben lesen? Was steht dafür im Cookie? Wie schützt der Code einen Zeitstrahl vor fremden Änderungen?
 - **Parser und reguläre Ausdrücke:** Wie erkennt `parseDate()` „9. November 1918“? Welche Eingaben scheitern?
 - **Zeitrechnung ohne Jahr 0:** Intern zählt der Parser „astronomisch“ (1 v. Chr. = 0). Warum ist das praktisch?
 - **Greedy-Algorithmus:** `layout()` verteilt Beschriftungen auf Spuren, damit sich nichts überlappt.
-- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“.
+- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“. `tests/layout.test.js` prüft mit zufälligen Ereignissen, dass sich nie zwei Fähnchen überdecken. `npm test` startet alle Tests, und GitHub lässt sie bei jedem Pull Request automatisch laufen.
 
 ## Beispiele
 

@@ -6,7 +6,6 @@
 
 const assert = require('node:assert/strict');
 const P = require('../js/parser.js');
-const L = require('../js/layout.js');
 
 const NOW = new Date(2026, 9, 4); // 4. Oktober 2026
 let passed = 0;
@@ -215,68 +214,6 @@ test('vor … Jahren', () => {
 test('Dauer eines Zeitraums', () => {
   const it = P.parseSource('1618–1648 | Krieg', NOW).items[0];
   assert.equal(P.durationText(it), '30 Jahre');
-});
-
-console.log('Skala');
-
-const measure = (text, weight, size) => text.length * size * 0.55;
-
-test('Skala kennt kein Jahr 0, zeigt aber Christi Geburt', () => {
-  const view = { v0: -300, v1: 300 };
-  const X = (t) => (t - view.v0) * 2;
-  const ticks = L.makeTicks(view, 1200, X, L.metricsFor(1), measure, 'x');
-  const labels = ticks.major.map((t) => t.label);
-  assert.ok(labels.includes('Chr. Geb.'));
-  assert.ok(labels.includes('100 v. Chr.'));
-  assert.ok(!labels.includes('0'));
-});
-
-// Fähnchen auf derselben Seite der Achse und in derselben Spur dürfen sich nicht überdecken
-function assertNoOverlap(g) {
-  const box = (e) => (e.flip ? [e.x - e.w, e.x] : [e.x, e.x + e.w]);
-  for (const a of g.evs) {
-    for (const b of g.evs) {
-      if (a === b || a.below !== b.below || a.lane !== b.lane) continue;
-      const [al, ar] = box(a);
-      const [bl, br] = box(b);
-      assert.ok(ar <= bl || br <= al, `${a.it.title} überdeckt ${b.it.title}`);
-    }
-  }
-}
-
-test('Spuren verhindern Überlappungen', () => {
-  const { items } = P.parseSource('1517 | Ein langer Titel A\n1518 | Ein langer Titel B\n1519 | Ein langer Titel C', NOW);
-  const g = L.layout(items, { v0: 1500, v1: 1540 }, 800, { scale: 1, family: 'x', measure, blank: false });
-  assertNoOverlap(g);
-});
-
-test('dichte Ereignisse verteilen sich auf beide Seiten der Achse', () => {
-  const src = Array.from({ length: 8 }, (_, i) => `${1517 + i * 3} | Ein recht langer Titel ${i}`).join('\n');
-  const { items } = P.parseSource(src, NOW);
-  const g = L.layout(items, { v0: 1450, v1: 1650 }, 1200, { scale: 1, family: 'x', measure, blank: false });
-  assertNoOverlap(g);
-  assert.ok(g.evs.some((e) => e.below) && g.evs.some((e) => !e.below));
-  // Auf zwei Seiten reicht höchstens die Hälfte der Spuren
-  const up = new Set(g.evs.filter((e) => !e.below).map((e) => e.lane)).size;
-  const down = new Set(g.evs.filter((e) => e.below).map((e) => e.lane)).size;
-  assert.ok(Math.max(up, down) <= 4);
-});
-
-test('Fähnchen am Rand ragen nicht aus dem Bild', () => {
-  const { items } = P.parseSource('1449 | Ein langer Titel am Anfang\n1649 | Ein langer Titel am Ende', NOW);
-  const g = L.layout(items, { v0: 1448, v1: 1650 }, 800, { scale: 1, family: 'x', measure, blank: false });
-  for (const e of g.evs) {
-    const [l, r] = e.flip ? [e.x - e.w, e.x] : [e.x, e.x + e.w];
-    assert.ok(l >= 0 && r <= 800, e.it.title);
-  }
-});
-
-test('Zeiträume stehen abgetrennt unter den Ereignissen', () => {
-  const { items } = P.parseSource('1517 | A\n1520 | B\n1524–1526 | Bauernkrieg', NOW);
-  const g = L.layout(items, { v0: 1500, v1: 1540 }, 800, { scale: 1, family: 'x', measure, blank: false });
-  assert.ok(g.spansZone > g.axisY);
-  for (const e of g.evs) assert.ok(e.y < g.spansZone);
-  for (const sp of g.sps) assert.ok(sp.y > g.spansZone);
 });
 
 console.log('\nTabellen (.csv)');
