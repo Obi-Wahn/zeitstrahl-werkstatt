@@ -53,7 +53,7 @@
   const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // Lehrkraft-Ansicht an einem anderen Gerät (Lehrer-PC), angemeldet mit Passwort.
   // Dort bleibt nichts im Browser liegen, alles kommt vom Laptop und geht dorthin zurück.
-  const REMOTE = /^\/lehrkraft\/?$/.test(location.pathname);
+  const REMOTE = location.pathname === '/lehrkraft';
 
   /* ---------- Textbreiten messen ---------- */
 
@@ -131,27 +131,16 @@
     const id = newId();
     return { activeId: id, timelines: [{ id, name: NEW_NAME, source: NEW_SOURCE, images: {} }] };
   }
-  // Frühere Versionen legten beim ersten Start alle Beispiele an. Liegen nur solche
-  // unveränderten Beispiele (oder leere neue Zeitstrahlen) vor, startet die Seite leer.
-  // Als unverändert gilt ein Beispiel mit gleichem Namen, ohne Bilder und mit denselben
-  // Einträgen (Datum und Titel). Ältere Schreibweisen mit „|“ oder geänderte Beschreibungen zählen nicht als Änderung.
-  const entryKeys = (src) => Parser.parseSource(src, NOW).items.map((i) => i.shortDate + ' ' + i.title).sort().join('\n');
-  function isPlainSample(t) {
-    if (Object.keys(t.images || {}).length) return false;
-    if (t.name === NEW_NAME && t.source.replace(/^#.*$/gm, '').trim() === '') return true;
-    const s = SAMPLES.find((x) => x.name === t.name);
-    return !!s && entryKeys(t.source) === entryKeys(s.source);
-  }
-  const onlySamples = (d) => d.timelines.every(isPlainSample);
-
   // Mit Server gilt der Stand im Ordner daten auf dem Laptop, denn dort kann auch
-  // ein anderes Gerät (Lehrer-PC) etwas geändert haben
+  // ein anderes Gerät (Lehrer-PC) etwas geändert haben. Der mitgelieferte Stand gilt
+  // erst, wenn die Daten auch übernommen werden (siehe syncFromServer).
+  let loadedStand = null;
   async function loadFromServer() {
     try {
       const res = await fetch('api/sicherung', { headers: API_HEADERS, cache: 'no-store' });
       if (!res.ok) return undefined;
       const d = await res.json();
-      server.stand = typeof d.stand === 'string' ? d.stand : null;
+      loadedStand = typeof d.stand === 'string' ? d.stand : null;
       return normalize(d); // null: Ordner daten ist leer
     } catch (e) {
       return undefined; // Server antwortet nicht
@@ -171,13 +160,10 @@
     } catch (e) { /* nichts gespeichert */ }
     return null;
   }
-  // Liefert den gespeicherten Stand und ob er nur aus unveränderten Beispielen bestand
   async function loadState() {
     const d = await Stand.waehlen({ serverAn: server.on, lehrerPc: REMOTE, ladeServer: loadFromServer, ladeBrowser: loadBrowser });
-    if (!d) return { state: freshState(), cleared: false };
-    // Am Lehrer-PC genau das zeigen, was auf dem Laptop gerade offen ist
-    if (onlySamples(d) && !REMOTE) return { state: freshState(), cleared: true };
-    return { state: d, cleared: false };
+    server.stand = loadedStand;
+    return d || freshState();
   }
 
   let storageOk = true;
@@ -366,7 +352,7 @@
     $('help-save').innerHTML = REMOTE
       ? 'Alles wird auf dem Laptop im Ordner <code>daten</code> gespeichert. Änderungen von dort erscheinen hier nach wenigen Sekunden. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
       : server.on
-      ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/sicherung.json</code> gespeichert, dazu je Tag eine Kopie in <code>daten/sicherungen</code>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
+      ? 'Alles wird in diesem Browser und zusätzlich auf dem Laptop in <code>daten/zeitstrahlen</code> gespeichert, dazu je Tag eine Kopie in <code>daten/sicherungen</code>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.'
       : 'Alles wird nur in diesem Browser gespeichert. Als Sicherung: <strong>Datei → Alle Zeitstrahlen sichern</strong>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.';
     showBackupDue();
   }
@@ -627,39 +613,42 @@
   }
 
   // Den Stand vom Laptop übernehmen, den gezeigten Zeitstrahl und Ausschnitt möglichst behalten
-  let syncing = false;
-  async function syncFromServer(force) {
-    if (syncing) return;
-    syncing = true;
-    try {
-      const d = await loadFromServer();
-      if (!d || (!force && syncPending())) return;
-      const before = ownTl();
-      const keepId = d.timelines.some((t) => t.id === state.activeId) ? state.activeId : d.activeId;
-      state = { activeId: keepId, timelines: d.timelines };
-      persistNow(true);
-      const now = ownTl();
-      const same = before && now.id === before.id;
-      const editing = document.activeElement && ['tl-name', 'tl-source'].includes(document.activeElement.id);
-      if (!same || !editing || now.name !== $('tl-name').value || now.source !== $('tl-source').value) loadEditor();
-      renderPicker();
-      renderTlNav();
-      if (studentView) return;
-      if (!same) {
-        hiddenCats = new Set();
-        selectedId = null;
-        selectedTitle = null;
-        reveal.n = 0;
-      }
-      reparse();
-      keepSelection();
-      renderHeading();
-      refreshLists();
-      if (same) requestRender();
-      else refit(false);
-    } finally {
-      syncing = false;
+  // Läuft schon ein Abgleich, wartet ein erzwungener (nach 409) auf ihn und holt danach selbst neu
+  let syncing = null;
+  function syncFromServer(force) {
+    if (syncing) return force ? syncing.then(() => syncFromServer(true)) : syncing;
+    syncing = applyServerState(force).finally(() => { syncing = null; });
+    return syncing;
+  }
+  async function applyServerState(force) {
+    const d = await loadFromServer();
+    // Inzwischen geändert: nichts übernehmen und den alten Stand behalten. Sonst ginge die
+    // eigene Änderung mit dem neuen Stand durch und würde die des anderen Geräts überschreiben.
+    if (!d || (!force && syncPending())) return;
+    server.stand = loadedStand;
+    const before = ownTl();
+    const keepId = d.timelines.some((t) => t.id === state.activeId) ? state.activeId : d.activeId;
+    state = { activeId: keepId, timelines: d.timelines };
+    persistNow(true);
+    const now = ownTl();
+    const same = before && now.id === before.id;
+    const editing = document.activeElement && ['tl-name', 'tl-source'].includes(document.activeElement.id);
+    if (!same || !editing || now.name !== $('tl-name').value || now.source !== $('tl-source').value) loadEditor();
+    renderPicker();
+    renderTlNav();
+    if (studentView) return;
+    if (!same) {
+      hiddenCats = new Set();
+      selectedId = null;
+      selectedTitle = null;
+      reveal.n = 0;
     }
+    reparse();
+    keepSelection();
+    renderHeading();
+    refreshLists();
+    if (same) requestRender();
+    else refit(false);
   }
 
   // Adresse und Passwort-Stand für den Lehrer-PC (nur am Laptop selbst).
@@ -2153,9 +2142,7 @@
     applyTheme(savedTheme, false);
 
     await detectServer();
-    const loaded = await loadState();
-    state = loaded.state;
-    if (loaded.cleared) persistNow(); // alte Beispiele auch im Browser und auf dem Server ersetzen
+    state = await loadState();
     reparse();
     loadEditor();
     renderPicker();

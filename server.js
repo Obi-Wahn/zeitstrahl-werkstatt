@@ -903,7 +903,12 @@ async function handle(req, res) {
   if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})\/stand$/)) && m === 'GET') return sendStand(req, res, mm[1]);
 
   // Anmelden an einem anderen Gerät (Lehrer-PC)
-  if (p === '/lehrkraft' || p === '/lehrkraft/') {
+  // Mit Schrägstrich am Ende würden Stil, Skripte und Anfragen unter /lehrkraft/… gesucht
+  if (p === '/lehrkraft/') {
+    res.writeHead(301, { Location: '/lehrkraft' + url.search });
+    return res.end();
+  }
+  if (p === '/lehrkraft') {
     if (m === 'POST') return login(req, res);
     if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Nicht erlaubt');
     if (isLocal(req)) {

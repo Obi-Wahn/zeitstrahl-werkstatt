@@ -343,6 +343,11 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
       assert.equal((await request(s.port, 'GET', '/api/abgaben', { cookie })).status, 403, 'ohne eigenen Kopf');
       assert.equal((await request(s.port, 'GET', '/api/zugang', { cookie, lehrkraft: true })).status, 403, 'Passwortstand nur am Laptop');
 
+      // Mit Schrägstrich am Ende fänden Stil und Skripte nicht, deshalb weiterleiten
+      const slash = await request(s.port, 'GET', '/lehrkraft/', { cookie });
+      assert.equal(slash.status, 301);
+      assert.equal(slash.headers.location, '/lehrkraft');
+
       assert.equal((await request(s.port, 'POST', '/api/abmelden', { cookie, lehrkraft: true })).status, 200);
       assert.equal((await request(s.port, 'GET', '/api/abgaben', { cookie, lehrkraft: true })).status, 403);
     });
