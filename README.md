@@ -42,7 +42,7 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 
     ![Tafelbild am Beamer in den Tafel-Farben, unten die Knöpfe zum schrittweisen Aufdecken und für die Übung „Was kam zuerst?“](docs/bilder/tafelbild.png)
 
-11. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv.
+11. **Behalten:** Mit **In meine Zeitstrahlen kopieren** wird eine Schülerarbeit zu einem eigenen, bearbeitbaren Zeitstrahl. **Abgabe löschen** verschiebt sie ins Archiv. Ist die Schülerseite dazu noch offen, speichert sie nicht einfach weiter: Die Gruppe sieht, dass die Lehrkraft den Zeitstrahl gelöscht hat, und kann ihn auf Wunsch als neuen Zeitstrahl mit neuem Code speichern.
 12. **Beenden:** Das Server-Fenster schließen.
 
 ### Tafelbild am Lehrer-PC, wenn der Laptop nicht am Beamer hängt
@@ -59,7 +59,7 @@ Hängt nur der Lehrer-PC am Beamer oder Smartboard, öffnet man dort dieselbe Le
 2. **Am Lehrer-PC:** Im Browser die Adresse eingeben, z. B. `http://192.168.178.23:8080/lehrkraft`, und mit dem Passwort anmelden. Die Adresse steht im Server-Fenster und am Laptop unter **Datei → Am Lehrer-PC öffnen …**.
 3. Dort geht alles wie am Laptop: Tafelbild, iPads verbinden mit QR-Code, Thema vorgeben, Schüler-Zeitstrahlen, Bearbeiten. Zum Schluss oben auf **Abmelden** klicken.
 
-Gespeichert wird immer auf dem Laptop im Ordner `daten`, auf dem Lehrer-PC bleibt nichts liegen. Änderungen an einem Gerät erscheinen nach wenigen Sekunden auf dem anderen. Ändern beide gleichzeitig, gilt die zuerst gespeicherte Änderung, und das andere Gerät sagt Bescheid.
+Gespeichert wird immer auf dem Laptop im Ordner `daten`, auf dem Lehrer-PC bleibt nichts liegen. Änderungen an einem Gerät erscheinen nach wenigen Sekunden auf dem anderen. Ändern beide gleichzeitig, gilt die zuerst gespeicherte Änderung, und das andere Gerät sagt Bescheid. Welcher Zeitstrahl gerade gezeigt wird, merkt sich jedes Gerät selbst: Ein Wechsel am Laptop schaltet das Tafelbild am Lehrer-PC nicht um.
 
 Nach einem Neustart des Servers oder nach zwölf Stunden meldet man sich am Lehrer-PC neu an. Läuft der Server ohne Konsole, etwa als Dienst, fragt er nicht nach dem Passwort. Dann einmal im Terminal `node server.js --passwort` ausführen.
 
@@ -127,7 +127,7 @@ Eine Zeile pro Eintrag:
 Datum; Titel; Kategorie; Beschreibung
 ```
 
-Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung. Ältere Zeilen mit `|` als Trenner funktionieren weiter.
+Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung.
 
 | Datum | Bedeutung |
 | --- | --- |
@@ -177,6 +177,7 @@ js/layout.js         Einträge → Positionen: Skala, Spuren gegen Überlappung,
 js/bild.js           Bilder im Browser verkleinern (höchstens 1000 px)
 js/zip.js            ZIP-Dateien packen und lesen, ohne Zusatzbibliothek
 js/stand.js          Beim Start den gespeicherten Stand wählen (mit Server nur der Ordner daten)
+js/gemeinsam.js      Gemeinsame Hilfen für Lehrkraft-Ansicht, Schülerseite und Server (Dateinamen, Bildprüfung, Farben)
 js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
 js/beispiele.js      Beispiel-Zeitstrahlen
