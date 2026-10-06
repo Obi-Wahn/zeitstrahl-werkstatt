@@ -19,6 +19,7 @@
   const LS_KEY = 'zeitstrahl-werkstatt-v1';
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
   const UNSAVED_KEY = 'zeitstrahl-werkstatt-ungesichert-seit';
+  const SHOWN_KEY = 'zeitstrahl-werkstatt-gezeigt';
   const REMIND_DAYS = 7;
   const ORDER_FILE = '_reihenfolge.json';
 
@@ -163,7 +164,15 @@
   async function loadState() {
     const d = await Stand.waehlen({ serverAn: server.on, lehrerPc: REMOTE, ladeServer: loadFromServer, ladeBrowser: loadBrowser });
     server.stand = loadedStand;
-    return d || freshState();
+    if (!d) return freshState();
+    // Jedes Gerät zeigt wieder den Zeitstrahl, den es zuletzt gezeigt hat
+    let shown = '';
+    try { shown = localStorage.getItem(SHOWN_KEY) || ''; } catch (e) { /* egal */ }
+    if (d.timelines.some((t) => t.id === shown)) d.activeId = shown;
+    return d;
+  }
+  function rememberShown() {
+    try { localStorage.setItem(SHOWN_KEY, state.activeId); } catch (e) { /* egal */ }
   }
 
   let storageOk = true;
@@ -544,7 +553,7 @@
     const sv = studentView;
     if (!sv) return;
     const t = addTimeline({ name: sv.name, source: sv.source, images: clone(sv.images) });
-    switchTo(t.id);
+    switchTo(t.id, true);
     toast(`„${displayName(t)}“ liegt jetzt in deinen Zeitstrahlen.`);
   }
 
@@ -1261,7 +1270,9 @@
 
   /* ---------- Zeitstrahl wechseln, anlegen, löschen ---------- */
 
-  async function switchTo(id) {
+  // modified: Zeitstrahlen wurden dabei angelegt, gelöscht oder ersetzt. Nur dann wird gespeichert
+  // und an den Laptop geschickt; welcher Zeitstrahl gezeigt wird, merkt sich jedes Gerät selbst.
+  async function switchTo(id, modified) {
     if (typeof id === 'string' && id.startsWith('abgabe:')) {
       try {
         studentView = abgabeToTimeline(await api('api/abgaben/' + id.slice(7)));
@@ -1273,7 +1284,8 @@
     } else {
       studentView = null;
       if (state.timelines.some((t) => t.id === id)) state.activeId = id;
-      changed();
+      rememberShown();
+      if (modified) changed();
     }
     hiddenCats = new Set();
     selectedId = null;
@@ -1348,7 +1360,7 @@
     if (!studentView && state.timelines.length > 1 && isUntouched(own)) {
       state.timelines = state.timelines.filter((x) => x !== own);
     }
-    switchTo(t.id);
+    switchTo(t.id, true);
     toast(`Beispiel „${t.name.replace(/\s*\(Beispiel\)\s*$/, '')}“ geöffnet.`);
   }
 
@@ -1728,7 +1740,7 @@
     }
     if (mode === 'replace') {
       state.timelines = found.map((t) => ({ id: newId(), name: t.name, source: t.source, images: t.images }));
-      await switchTo(state.timelines[0].id);
+      await switchTo(state.timelines[0].id, true);
       fertig(found.length === 1 ? 'Sicherung geöffnet, ein Zeitstrahl.' : `Sicherung geöffnet, ${found.length} Zeitstrahlen.`);
       return;
     }
@@ -1746,7 +1758,7 @@
     const n = found.length - added;
     const doppelt = n === 1 ? 'Einer war schon vorhanden.' : `${n} waren schon vorhanden.`;
     if (lastAdded) {
-      await switchTo(lastAdded.id);
+      await switchTo(lastAdded.id, true);
       fertig((added === 1 ? `„${displayName(lastAdded)}“ geöffnet.` : `${added} Zeitstrahlen geöffnet.`) + (n ? ' ' + doppelt : ''));
     } else {
       await switchTo(skipped.id);
@@ -1817,14 +1829,14 @@
 
     $('btn-new').addEventListener('click', () => {
       const t = addTimeline({ name: NEW_NAME, source: NEW_SOURCE, images: {} });
-      switchTo(t.id);
+      switchTo(t.id, true);
       $('tl-name').focus();
       $('tl-name').select();
     });
     $('btn-dup').addEventListener('click', () => {
       const s = activeTl();
       const t = addTimeline({ name: displayName(s) + ' (Kopie)', source: s.source, images: clone(s.images) });
-      switchTo(t.id);
+      switchTo(t.id, true);
       toast('Kopie angelegt.');
     });
     $('btn-del').addEventListener('click', () => {
@@ -1839,7 +1851,7 @@
       disarmDelete();
       const idx = state.timelines.findIndex((t) => t.id === state.activeId);
       const [gone] = state.timelines.splice(idx, 1);
-      switchTo(state.timelines[Math.max(0, idx - 1)].id);
+      switchTo(state.timelines[Math.max(0, idx - 1)].id, true);
       toast(`„${displayName(gone)}“ gelöscht.`);
     });
 
@@ -2100,7 +2112,9 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         persistNow();
-        toast(REMOTE ? 'Wird auf dem Laptop gespeichert.' : 'In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
+        toast(REMOTE ? 'Wird auf dem Laptop gespeichert.'
+          : server.on ? 'Gespeichert, auch auf dem Laptop im Ordner daten.'
+          : 'In diesem Browser gespeichert. Als Sicherung: Datei → Alle Zeitstrahlen sichern.');
         return;
       }
       if ($('abgaben').open || $('connect').open || $('zugang').open || $('import-ask').open || $('sort').open) return;
@@ -2159,7 +2173,6 @@
       loadTask().then(renderKlassePanel);
       pollAbgaben();
       setInterval(pollAbgaben, 5000);
-      scheduleBackup();
     }
     const days = showBackupDue();
     if (days) toast(`Seit ${days} Tagen keine Sicherung als Datei. Oben auf „Jetzt sichern“ klicken.`);

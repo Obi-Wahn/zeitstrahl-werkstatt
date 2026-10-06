@@ -28,7 +28,8 @@
   const val = (id) => $(id).value.trim();
 
   // Der eigene Zeitstrahl. id und code vergibt der Server beim ersten Speichern.
-  const emptyWork = () => ({ id: '', code: '', thema: '', titel: '', von: '', status: '', saved: '', rev: 0, savedRev: 0, rueckmeldung: '', entries: [] });
+  // geloescht: Die Lehrkraft hat den gespeicherten Zeitstrahl gelöscht, die Gruppe entscheidet, ob er neu gespeichert wird.
+  const emptyWork = () => ({ id: '', code: '', thema: '', titel: '', von: '', status: '', saved: '', rev: 0, savedRev: 0, rueckmeldung: '', geloescht: false, entries: [] });
   let work = emptyWork();
   let task = { thema: '', auftrag: '', gesperrt: false };
   let serverMode = false;
@@ -328,7 +329,7 @@
       toast('Keine Verbindung zum Laptop der Lehrkraft. Eure Eingaben bleiben auf dem iPad.');
       return;
     }
-    if (dirty() && work.id) {
+    if (dirty() && work.id && !work.geloescht) {
       saveToServer(work.status || 'entwurf', true).then((ok) => {
         toast(ok ? 'Verbindung wieder da. Euer Zeitstrahl ist gespeichert.' : 'Verbindung wieder da.');
       });
@@ -357,6 +358,7 @@
       }
       if (work.code) {
         const r = await fetch(`api/abgaben/code/${encodeURIComponent(work.code)}/stand`, { cache: 'no-store' });
+        if (r.status === 404 && work.id && !work.geloescht) markDeleted();
         if (r.ok) {
           const d = await r.json();
           if ((d.rueckmeldung || '') !== (work.rueckmeldung || '')) {
@@ -398,7 +400,7 @@
     st.textContent = text;
     st.dataset.tone = tone;
     st.hidden = !text;
-    $('code-box').hidden = !work.code;
+    $('code-box').hidden = !work.code || work.geloescht;
     $('code-value').textContent = work.code;
     $('submitted-msg').hidden = !(serverMode && work.status === 'abgegeben' && !dirty());
     $('btn-draft').hidden = !serverMode;
@@ -407,7 +409,9 @@
     $('btn-open').hidden = serverMode;
     const zu = serverMode && !!task.gesperrt;
     $('locked-msg').hidden = !zu;
-    for (const id of ['btn-draft', 'btn-submit', 'btn-file']) $(id).disabled = !n || busy || (zu && id !== 'btn-file');
+    $('deleted-msg').hidden = !(serverMode && work.geloescht);
+    for (const id of ['btn-draft', 'btn-submit', 'btn-file']) $(id).disabled = !n || busy || (zu && id !== 'btn-file') || (work.geloescht && id !== 'btn-file');
+    $('btn-save-new').disabled = !n || busy || zu;
     $('btn-submit').textContent = work.status === 'abgegeben' ? 'Erneut abgeben' : 'Fertig – abgeben';
     $('resume').hidden = !serverMode;
     $('btn-new').hidden = !n && !work.code;
@@ -440,6 +444,10 @@
         }),
       });
       const d = await res.json().catch(() => ({}));
+      if (res.status === 410) {
+        markDeleted();
+        return false;
+      }
       if (res.status === 423) {
         task.gesperrt = true;
         renderStatus();
@@ -468,10 +476,29 @@
     }
   }
 
+  // Die Lehrkraft hat den Zeitstrahl gelöscht: nichts mehr automatisch speichern, die Gruppe fragen
+  function markDeleted() {
+    work.geloescht = true;
+    clearTimeout(autoTimer);
+    saveLocal();
+    renderStatus();
+    toast('Eure Lehrkraft hat diesen Zeitstrahl gelöscht. Eure Eingaben sind noch auf dem iPad.');
+  }
+
+  // Auf Wunsch der Gruppe: als neuen Zeitstrahl speichern, mit neuem Code
+  async function saveAsNew() {
+    Object.assign(work, { id: '', code: '', status: '', saved: '', rueckmeldung: '', geloescht: false });
+    renderFeedback();
+    if (!(await saveToServer('entwurf'))) {
+      saveLocal();
+      renderStatus();
+    }
+  }
+
   // Wer schon einmal gespeichert hat, wird automatisch weiter gesichert
   function scheduleAutosave() {
     clearTimeout(autoTimer);
-    if (!serverMode || !work.id) return;
+    if (!serverMode || !work.id || work.geloescht) return;
     autoTimer = setTimeout(() => {
       if (dirty()) saveToServer(work.status || 'entwurf', true);
     }, AUTOSAVE_MS);
@@ -716,6 +743,7 @@
     }
   });
   $('btn-draft').addEventListener('click', () => saveToServer('entwurf'));
+  $('btn-save-new').addEventListener('click', saveAsNew);
   $('btn-submit').addEventListener('click', () => saveToServer('abgegeben'));
   $('btn-file').addEventListener('click', saveFile);
   $('btn-open').addEventListener('click', chooseFile);
