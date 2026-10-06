@@ -35,6 +35,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const { exec } = require('node:child_process');
+const { slug, str, validImage: imageData } = require('./js/gemeinsam.js'); // dieselben Hilfen wie im Browser
 
 const ROOT = __dirname;
 const DATA = path.join(ROOT, 'daten');
@@ -44,7 +45,6 @@ const TASK = path.join(DATA, 'aufgabe.json');
 const TIMELINES = path.join(DATA, 'zeitstrahlen');
 const DELETED = path.join(TIMELINES, 'geloescht');
 const ORDER_FILE = '_reihenfolge.json';    // Reihenfolge und zuletzt gezeigter Zeitstrahl
-const OLD_BACKUP = path.join(DATA, 'sicherung.json'); // frühere Sicherung in einer Datei
 const BACKUP_DAYS = path.join(DATA, 'sicherungen');
 const KEEP_DAYS = 14;                    // so viele Tagessicherungen bleiben liegen
 const SETTINGS_FILE = path.join(ROOT, 'einstellungen.txt'); // Port und Passwort-Hash
@@ -385,8 +385,7 @@ async function sendFile(res, file) {
 
 /* ---------- Hilfen ---------- */
 
-const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
-const validImage = (s) => typeof s === 'string' && s.length <= MAX_IMAGE && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
+const validImage = (s) => imageData(s) && s.length <= MAX_IMAGE;
 const time = () => new Date().toLocaleTimeString('de-DE');
 
 // Erst in eine eigene Zwischendatei schreiben, dann umbenennen. So liegt immer eine
@@ -507,13 +506,7 @@ function loadIndex() {
     try {
       const a = JSON.parse(fs.readFileSync(path.join(ABGABEN, f), 'utf8'));
       if (!ID_RX.test(a.id) || !CODE_RX.test(a.code) || !Array.isArray(a.eintraege)) continue;
-      // Ältere Abgaben hießen nur nach ihrer Kennung (3f9a1c7e5b2d8a04.json)
-      let datei = f;
-      if (f !== abgabeFile(a) && !fs.existsSync(path.join(ABGABEN, abgabeFile(a)))) {
-        fs.renameSync(path.join(ABGABEN, f), path.join(ABGABEN, abgabeFile(a)));
-        datei = abgabeFile(a);
-      }
-      index.set(a.id, summary(a, datei));
+      index.set(a.id, summary(a, f));
     } catch (e) { /* unlesbare Datei überspringen */ }
   }
 }
@@ -596,16 +589,26 @@ async function sendAbgabe(res, id) {
   }
 }
 
-// Schüler holen ihren Zeitstrahl mit dem Code zurück, um weiterzuarbeiten
-async function loadByCode(req, res, raw) {
-  if (tooManyWrongCodes(req, false)) return sendJson(res, 429, { fehler: 'Zu viele falsche Codes. Bitte eine Minute warten.' });
+// Zeitstrahl zu einem Code suchen. Falsche Codes zählen, damit niemand Codes durchprobiert.
+// Liefert null, wenn die Antwort schon geschickt ist.
+function findByCode(req, res, raw) {
+  if (tooManyWrongCodes(req, false)) {
+    sendJson(res, 429, { fehler: 'Zu viele falsche Codes. Bitte eine Minute warten.' });
+    return null;
+  }
   const code = String(raw).toUpperCase();
   const hit = CODE_RX.test(code) ? [...index.values()].find((x) => x.code === code) : null;
   if (!hit) {
     tooManyWrongCodes(req);
-    return sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl. Bitte den Code prüfen.' });
+    sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl. Bitte den Code prüfen.' });
   }
-  return sendAbgabe(res, hit.id);
+  return hit;
+}
+
+// Schüler holen ihren Zeitstrahl mit dem Code zurück, um weiterzuarbeiten
+async function loadByCode(req, res, raw) {
+  const hit = findByCode(req, res, raw);
+  if (hit) await sendAbgabe(res, hit.id);
 }
 
 // Die Lehrkraft schreibt der Gruppe eine kurze Rückmeldung. Die Gruppe sieht sie
@@ -626,7 +629,6 @@ async function storeRueckmeldung(res, id, text) {
     return sendJson(res, 404, { fehler: 'Diesen Zeitstrahl gibt es nicht mehr.' });
   }
   abgabe.rueckmeldung = text;
-  abgabe.rueckmeldungAm = text ? new Date().toISOString() : '';
   await writeAtomic(file, JSON.stringify(abgabe));
   index.set(id, summary(abgabe, datei));
   console.log(`${time()}  Rückmeldung für „${abgabe.titel || abgabe.thema}“ von ${abgabe.von}: ${text ? `„${text}“` : '(entfernt)'}`);
@@ -635,13 +637,8 @@ async function storeRueckmeldung(res, id, text) {
 
 // Kurzer Stand für die Schülerseite: Ist die Abgabe beendet? Gibt es eine Rückmeldung?
 async function sendStand(req, res, raw) {
-  if (tooManyWrongCodes(req, false)) return sendJson(res, 429, { fehler: 'Zu viele falsche Codes. Bitte eine Minute warten.' });
-  const code = String(raw).toUpperCase();
-  const hit = CODE_RX.test(code) ? [...index.values()].find((x) => x.code === code) : null;
-  if (!hit) {
-    tooManyWrongCodes(req);
-    return sendJson(res, 404, { fehler: 'Zu diesem Code gibt es keinen Zeitstrahl.' });
-  }
+  const hit = findByCode(req, res, raw);
+  if (!hit) return;
   const task = await readTask();
   sendJson(res, 200, { status: hit.status, aktualisiert: hit.aktualisiert, rueckmeldung: hit.rueckmeldung || '', gesperrt: task.gesperrt });
 }
@@ -660,14 +657,6 @@ async function moveToArchive(res, id) {
 }
 
 /* ---------- Zeitstrahlen der Lehrkraft: je Zeitstrahl eine Datei ---------- */
-
-// Dateiname aus einem Titel: „Weimarer Republik“ → weimarer-republik
-function slug(name) {
-  const s = String(name || '').toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-  return s || 'zeitstrahl';
-}
 
 // Freier Dateiname in einem Ordner: name.json, sonst name-2.json, name-3.json …
 function freeName(base, taken) {
@@ -730,34 +719,7 @@ function readOrder() {
   }
 }
 
-// Früher lag alles zusammen in daten/sicherung.json. Beim ersten Start wird sie
-// einmalig in Einzeldateien aufgeteilt und bleibt als sicherung-alt.json liegen.
-function migrateBackup() {
-  if (fs.existsSync(TIMELINES) || !fs.existsSync(OLD_BACKUP)) return;
-  try {
-    const d = JSON.parse(fs.readFileSync(OLD_BACKUP, 'utf8'));
-    if (!d || !Array.isArray(d.timelines)) return;
-    fs.mkdirSync(TIMELINES, { recursive: true });
-    const taken = new Set();
-    const ids = [];
-    for (const t of d.timelines) {
-      if (!t || typeof t.name !== 'string' || typeof t.source !== 'string') continue;
-      const id = typeof t.id === 'string' && t.id ? t.id : 't' + crypto.randomBytes(5).toString('hex');
-      const datei = freeName(slug(t.name), taken);
-      taken.add(datei);
-      fs.writeFileSync(path.join(TIMELINES, datei), timelineFile({ ...t, id }));
-      ids.push(id);
-    }
-    fs.writeFileSync(path.join(TIMELINES, ORDER_FILE), JSON.stringify({ activeId: d.activeId || ids[0], reihenfolge: ids }));
-    fs.renameSync(OLD_BACKUP, path.join(DATA, 'sicherung-alt.json'));
-    console.log(`  Die Sicherung wurde in ${ids.length} Einzeldateien in daten/zeitstrahlen aufgeteilt.`);
-  } catch (e) {
-    console.error('  daten/sicherung.json ließ sich nicht aufteilen und bleibt unverändert.');
-  }
-}
-
 function loadTimelines() {
-  migrateBackup();
   readTimelines();
   lastOrder = readOrder().reihenfolge.join();
 }
@@ -872,10 +834,10 @@ function dayName(d) {
 
 // Vor der ersten Änderung eines Tages wird der bisherige Stand als Tageskopie
 // abgelegt (daten/sicherungen/2026-10-04/). So lässt sich ein versehentlich
-// gelöschter oder verändertter Zeitstrahl zurückholen (Datei → Öffnen).
+// gelöschter oder veränderter Zeitstrahl zurückholen (Datei → Öffnen).
 async function keepDailyCopy() {
   const target = path.join(BACKUP_DAYS, dayName(new Date()));
-  if (fs.existsSync(target) || fs.existsSync(target + '.json')) return; // heute schon gesichert
+  if (fs.existsSync(target)) return; // heute schon gesichert
   let names = [];
   try {
     names = (await fsp.readdir(TIMELINES)).filter((f) => f.endsWith('.json') && f !== ORDER_FILE);
@@ -884,8 +846,7 @@ async function keepDailyCopy() {
   await fsp.mkdir(target, { recursive: true });
   for (const f of names) await fsp.copyFile(path.join(TIMELINES, f), path.join(target, f));
   try {
-    // Ordner und ältere Tageskopien als einzelne .json-Datei
-    const old = (await fsp.readdir(BACKUP_DAYS)).filter((f) => /^\d{4}-\d\d-\d\d(\.json)?$/.test(f)).sort().reverse().slice(KEEP_DAYS);
+    const old = (await fsp.readdir(BACKUP_DAYS)).filter((f) => /^\d{4}-\d\d-\d\d$/.test(f)).sort().reverse().slice(KEEP_DAYS);
     for (const f of old) await fsp.rm(path.join(BACKUP_DAYS, f), { recursive: true, force: true });
   } catch (e) { /* Aufräumen klappt beim nächsten Mal */ }
 }

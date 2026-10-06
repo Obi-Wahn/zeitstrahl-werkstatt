@@ -37,7 +37,8 @@ async function test(name, fn) {
 // Leerer Ordner mit server.js und den Seiten, dazu einstellungen.txt mit Passwort
 function workdir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeitstrahl-test-'));
-  for (const f of ['server.js', 'index.html', 'beitrag.html', 'anmelden.html']) {
+  fs.mkdirSync(path.join(dir, 'js'));
+  for (const f of ['server.js', 'index.html', 'beitrag.html', 'anmelden.html', 'js/gemeinsam.js']) {
     fs.copyFileSync(path.join(REPO, f), path.join(dir, f));
   }
   const salt = crypto.randomBytes(16).toString('hex');
@@ -377,23 +378,21 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
     await s.stop();
   }
 
-  // Szenario 6: Zeitstrahlen der Lehrkraft, Tageskopie und alte Sicherung
+  // Szenario 6: Zeitstrahlen der Lehrkraft und Tageskopie
   {
     const dir = workdir();
-    // Frühere Sicherung in einer Datei, wie sie ältere Fassungen geschrieben haben
-    fs.mkdirSync(path.join(dir, 'daten'));
-    fs.writeFileSync(path.join(dir, 'daten', 'sicherung.json'), JSON.stringify({
-      activeId: 'b',
-      timelines: [{ id: 'a', name: 'Weimarer Republik', source: '1918 Republik' }, { id: 'b', name: 'Reformation', source: '1517 Thesen' }],
-    }));
     const s = await start(dir);
     const c = client(s.port);
     const ordner = path.join(dir, 'daten', 'zeitstrahlen');
     let stand;
 
-    await test('Alte sicherung.json wird beim Start in Einzeldateien aufgeteilt', async () => {
+    await test('Jeder Zeitstrahl liegt als eigene Datei im Ordner daten, Reihenfolge bleibt', async () => {
+      assert.equal((await c.laptop('GET', '/api/sicherung')).json.leer, true);
+      await c.laptop('PUT', '/api/sicherung', {
+        activeId: 'b',
+        timelines: [{ id: 'a', name: 'Weimarer Republik', source: '1918 Republik' }, { id: 'b', name: 'Reformation', source: '1517 Thesen' }],
+      });
       assert.deepEqual(dateienIn(ordner).sort(), ['_reihenfolge.json', 'reformation.json', 'weimarer-republik.json']);
-      assert.ok(fs.existsSync(path.join(dir, 'daten', 'sicherung-alt.json')));
       const r = await c.laptop('GET', '/api/sicherung');
       assert.deepEqual(r.json.timelines.map((t) => t.name), ['Weimarer Republik', 'Reformation']);
       assert.equal(r.json.activeId, 'b');
