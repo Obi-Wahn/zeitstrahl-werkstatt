@@ -214,7 +214,7 @@
 
   function parseDateField(raw, now) {
     const s = String(raw).trim();
-    if (!s) return { error: 'Datum fehlt. Beispiel: 1517 | Thesenanschlag | Religion' };
+    if (!s) return { error: 'Datum fehlt. Beispiel: 1517; Thesenanschlag; Religion' };
     const cent = centuryField(s);
     if (cent) return cent;
     const range = splitRange(s);
