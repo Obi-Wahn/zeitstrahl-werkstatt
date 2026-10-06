@@ -112,7 +112,7 @@ function choosePort() {
   const raw = args.find((a) => /^\d+$/.test(a)) || process.env.PORT || readSettings().port || '8080';
   const port = Number(raw);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    console.error(`\nDer Port „${raw}“ ist ungültig. Bitte in einstellungen.txt eine Zahl zwischen 1024 und 65535 eintragen, z. B.:  port = 8080\n`);
+    console.error(`\nDer Port „${raw}“ ist ungültig. Bitte in einstellungen.txt eine Zahl zwischen 1 und 65535 eintragen, am besten ab 1024, z. B.:  port = 8080\n`);
     process.exit(1);
   }
   return port;
@@ -553,6 +553,10 @@ async function storeAbgabe(res, d, von, eintraege) {
   if (typeof d.id === 'string' && index.has(d.id)) {
     old = index.get(d.id);
     if (old.code !== d.code) return sendJson(res, 403, { fehler: 'Der Code passt nicht zu diesem Zeitstrahl.' });
+  } else if (typeof d.id === 'string' && d.id) {
+    // Die Lehrkraft hat den Zeitstrahl gelöscht. Nicht still mit neuem Code wieder anlegen:
+    // Das iPad fragt die Gruppe und schickt ihn dann ohne Kennung als neuen.
+    return sendJson(res, 410, { geloescht: true, fehler: 'Eure Lehrkraft hat diesen Zeitstrahl gelöscht.' });
   }
   const codes = new Set([...index.values()].map((x) => x.code));
   let code = old ? old.code : newCode();

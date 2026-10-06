@@ -220,6 +220,16 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
       assert.equal((await c.schueler('GET', `/api/abgaben/code/${gruppe.code}`)).status, 404);
     });
 
+    await test('Gelöschter Zeitstrahl wird nicht still neu angelegt, erst auf Wunsch ohne Kennung', async () => {
+      const weiter = await c.schueler('POST', '/api/abgaben', abgabe('Ben', 'Weimar', [ereignis('Republik', '1918')], gruppe));
+      assert.equal(weiter.status, 410);
+      assert.equal(weiter.json.geloescht, true);
+      assert.equal(dateienIn(abgabenOrdner(dir)).length, 0);
+      const neu = await c.schueler('POST', '/api/abgaben', abgabe('Ben', 'Weimar', [ereignis('Republik', '1918')]));
+      assert.equal(neu.status, 200);
+      assert.notEqual(neu.json.code, gruppe.code);
+    });
+
     await s.stop();
   }
 

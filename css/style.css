@@ -915,6 +915,7 @@ body.present .detail-img { max-height: 46vh; }
   background: var(--sheet);
 }
 .locked-msg { margin: 0; }
+#deleted-msg p { margin: 0 0 10px; }
 .feedback-card { border-color: var(--board); }
 .feedback-text {
   margin: 0;
