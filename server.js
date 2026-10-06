@@ -812,7 +812,7 @@ async function saveBackup(req, res) {
     return sendJson(res, 400, { fehler: 'Ungültige Sicherung.' });
   }
   const job = backupQueue.then(() => {
-    // Ohne mitgeschickten Stand (Seite ohne Abgleich) wird wie bisher gespeichert
+    // Ohne mitgeschickten Stand (die Seite hat noch nichts vom Server geladen) wird einfach gespeichert
     if (typeof d.stand === 'string' && d.stand !== stand) return false;
     return writeTimelines(d).then(() => true);
   });
