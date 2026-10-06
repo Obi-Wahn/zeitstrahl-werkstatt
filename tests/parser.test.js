@@ -140,7 +140,7 @@ test('Unsinn wird gemeldet', () => {
 console.log('Zeilen');
 
 test('ganze Zeile mit Kategorie und Beschreibung', () => {
-  const { items, problems } = P.parseSource('1555 | Augsburger Religionsfrieden | Politik | Text mit | Strich', NOW);
+  const { items, problems } = P.parseSource('1555; Augsburger Religionsfrieden; Politik; Text mit | Strich', NOW);
   assert.equal(problems.length, 0);
   assert.equal(items[0].title, 'Augsburger Religionsfrieden');
   assert.equal(items[0].ci, 1);
@@ -155,12 +155,10 @@ test('Semikolon als Trenner, weitere Semikolons bleiben in der Beschreibung', ()
   assert.equal(items[0].desc, 'Erst Streit; dann Frieden');
 });
 
-test('alte Zeilen mit „|“ und Semikolon im Text gelten weiter', () => {
-  const { items } = P.parseSource('1517 | Thesen; Anschlag | Religion | A; B\n1521; Worms | Reichstag; Politik', NOW);
-  assert.equal(items[0].title, 'Thesen; Anschlag');
-  assert.equal(items[0].desc, 'A; B');
-  assert.equal(items[1].title, 'Worms | Reichstag');
-  assert.equal(items[1].cat, 'Politik');
+test('„|“ ist kein Trenner, sondern ein normales Zeichen', () => {
+  const { items } = P.parseSource('1521; Worms | Reichstag; Politik', NOW);
+  assert.equal(items[0].title, 'Worms | Reichstag');
+  assert.equal(items[0].cat, 'Politik');
 });
 
 test('buildLine macht aus Semikolons in Titel und Kategorie Kommas', () => {
@@ -169,18 +167,18 @@ test('buildLine macht aus Semikolons in Titel und Kategorie Kommas', () => {
 });
 
 test('Kommentare und Leerzeilen werden übersprungen', () => {
-  const { items } = P.parseSource('# Notiz\n\n1517 | Thesen', NOW);
+  const { items } = P.parseSource('# Notiz\n\n1517; Thesen', NOW);
   assert.equal(items.length, 1);
   assert.equal(items[0].line, 2);
 });
 
 test('fehlender Titel wird mit Zeilennummer gemeldet', () => {
-  const { problems } = P.parseSource('1517 | Thesen\n1521', NOW);
+  const { problems } = P.parseSource('1517; Thesen\n1521', NOW);
   assert.equal(problems[0].line, 1);
 });
 
 test('Zusatzangaben {bild:…} {von:…} {quelle:…}', () => {
-  const { items } = P.parseSource('1648 | Westfälischer Friede | Politik | Text {von:Lena} {quelle:Wikimedia} {bild:b12}', NOW);
+  const { items } = P.parseSource('1648; Westfälischer Friede; Politik; Text {von:Lena} {quelle:Wikimedia} {bild:b12}', NOW);
   assert.equal(items[0].img, 'b12');
   assert.equal(items[0].von, 'Lena');
   assert.equal(items[0].quelle, 'Wikimedia');
@@ -189,14 +187,14 @@ test('Zusatzangaben {bild:…} {von:…} {quelle:…}', () => {
 
 test('buildLine macht Formulartext zeilentauglich', () => {
   const line = P.buildLine({ datum: '1517', titel: 'A | B', kategorie: '', beschreibung: 'Zeile 1\nZeile 2 {x}', von: 'Tom', bild: 'b1' });
-  assert.equal(line, '1517; A / B; Allgemein; Zeile 1 Zeile 2 x {von:Tom} {bild:b1}');
+  assert.equal(line, '1517; A | B; Allgemein; Zeile 1 Zeile 2 x {von:Tom} {bild:b1}');
   const back = P.parseSource(line, NOW).items[0];
-  assert.equal(back.title, 'A / B');
+  assert.equal(back.title, 'A | B');
   assert.equal(back.img, 'b1');
 });
 
 test('eigene Kategorien bekommen verschiedene Farben', () => {
-  const { cats } = P.parseSource('1517 | A | Mönche\n1518 | B | Städte\n1519 | C | Religion', NOW);
+  const { cats } = P.parseSource('1517; A; Mönche\n1518; B; Städte\n1519; C; Religion', NOW);
   const ci = cats.map((c) => c.ci);
   assert.equal(new Set(ci).size, 3);
   assert.equal(cats.find((c) => c.key === 'religion').ci, 2);
@@ -205,14 +203,14 @@ test('eigene Kategorien bekommen verschiedene Farben', () => {
 console.log('Texte');
 
 test('vor … Jahren', () => {
-  const it = P.parseSource('1517 | Thesen', NOW).items[0];
+  const it = P.parseSource('1517; Thesen', NOW).items[0];
   assert.equal(P.agoText(it, NOW), 'vor 509 Jahren');
-  const bc = P.parseSource('44 v. Chr. | Caesar', NOW).items[0];
+  const bc = P.parseSource('44 v. Chr.; Caesar', NOW).items[0];
   assert.equal(P.agoText(bc, NOW), 'vor 2069 Jahren');
 });
 
 test('Dauer eines Zeitraums', () => {
-  const it = P.parseSource('1618–1648 | Krieg', NOW).items[0];
+  const it = P.parseSource('1618–1648; Krieg', NOW).items[0];
   assert.equal(P.durationText(it), '30 Jahre');
 });
 
@@ -228,9 +226,9 @@ test('Komma, Anführungszeichen und ohne Kopfzeile', () => {
   assert.equal(P.tableToSource(csv), '1521; Reichstag zu Worms; Politik; Luther widerruft nicht, sagt "Hier stehe ich"\n');
 });
 
-test('Spalten in anderer Reihenfolge, Senkrechtstrich wird ersetzt', () => {
+test('Spalten in anderer Reihenfolge, Senkrechtstrich bleibt', () => {
   const csv = 'Titel\tJahr\tNotiz\nAugsburger Religionsfriede\t1555\tcuius regio | eius religio\n';
-  assert.equal(P.tableToSource(csv), '1555; Augsburger Religionsfriede; Allgemein; cuius regio / eius religio\n');
+  assert.equal(P.tableToSource(csv), '1555; Augsburger Religionsfriede; Allgemein; cuius regio | eius religio\n');
 });
 
 test('Zeilenumbruch in einer Zelle und leere Zeilen', () => {

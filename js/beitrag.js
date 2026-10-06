@@ -12,6 +12,7 @@
   const Parser = window.ZeitstrahlParser;
   const Layout = window.ZeitstrahlLayout;
   const Bild = window.ZeitstrahlBild;
+  const { slug, str, validImage, toast, download, measure, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
 
   const DRAFT_KEY = 'zeitstrahl-schueler-v2';
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
@@ -47,17 +48,10 @@
 
   // Eigene Wahl der Schüler zählt zuerst, sonst die der Lehrkraft-Ansicht auf demselben Gerät,
   // sonst die Einstellung des Geräts
-  const THEMES = { system: 'Farben: automatisch', light: 'Farben: hell', dark: 'Farben: Tafel' };
   let theme = 'system';
-  const shownTheme = () => (theme !== 'system' ? theme
-    : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   function applyTheme(t, save) {
-    theme = THEMES[t] ? t : 'system';
-    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', theme);
-    const b = $('btn-theme');
-    b.setAttribute('aria-label', THEMES[theme]);
-    b.title = THEMES[theme] + ' (zum Umschalten klicken)';
+    theme = setTheme(t);
+    labelThemeIcon($('btn-theme'), theme);
     if (save) { try { localStorage.setItem(STUDENT_THEME_KEY, theme); } catch (e) { /* egal */ } }
   }
   try {
@@ -289,12 +283,6 @@
     renderStatus();
   }
 
-  const mctx = document.createElement('canvas').getContext('2d');
-  function measure(text, weight, size, fam) {
-    mctx.font = `${weight} ${size.toFixed(2)}px ${fam}`;
-    return mctx.measureText(text).width;
-  }
-
   // So sieht der Zeitstrahl aus; Antippen eines Ereignisses öffnet es im Formular
   function renderPreview() {
     const box = $('preview');
@@ -504,12 +492,6 @@
     }, AUTOSAVE_MS);
   }
 
-  function slug(s) {
-    return (s || '').toLowerCase()
-      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  }
-
   // Ohne Server: als Datei, die die Lehrkraft über „Datei → Öffnen“ einliest
   function saveFile() {
     if (!work.entries.length) return;
@@ -522,22 +504,12 @@
       erstellt: new Date().toISOString(),
       eintraege: payloadEntries(),
     };
-    const name = ['zeitstrahl', slug(work.thema), slug(work.von)].filter(Boolean).join('-') + '.json';
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    const name = ['zeitstrahl', ...[work.thema, work.von].filter(Boolean).map(slug)].join('-') + '.json';
+    download(name, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     toast(`„${name}“ gespeichert. Jetzt bei der Lehrkraft abgeben.`);
   }
 
   // Ohne Server: eine gespeicherte Datei wieder öffnen und weiterarbeiten
-  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
-  const validImage = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
-
   let openArmed = 0;
   function disarmOpen() {
     clearTimeout(openArmed);
@@ -669,17 +641,6 @@
     toast('Neuer Zeitstrahl begonnen.');
   }
 
-  /* ---------- Hinweise ---------- */
-
-  let toastTimer = 0;
-  function toast(msg) {
-    const t = $('toast');
-    t.textContent = msg;
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, 4500);
-  }
-
   function renderAll() {
     fillGroup();
     resetForm();
@@ -754,7 +715,7 @@
   $('resume').addEventListener('submit', loadCode);
   $('btn-new').addEventListener('click', startNew);
   // Immer ins Gegenteil des Sichtbaren, wie in der Lehrkraft-Ansicht
-  $('btn-theme').addEventListener('click', () => applyTheme(shownTheme() === 'dark' ? 'light' : 'dark', true));
+  $('btn-theme').addEventListener('click', () => applyTheme(shownTheme(theme) === 'dark' ? 'light' : 'dark', true));
   window.addEventListener('pagehide', saveLocal);
 
   new ResizeObserver(() => renderPreview()).observe($('preview'));

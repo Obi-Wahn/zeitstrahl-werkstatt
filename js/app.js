@@ -12,6 +12,7 @@
   const Zip = window.ZeitstrahlZip;
   const Stand = window.ZeitstrahlStand;
   const SAMPLES = window.ZeitstrahlBeispiele || [];
+  const { slug, str, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
 
   const DB_NAME = 'zeitstrahl-werkstatt';
   const DB_STORE = 'daten';
@@ -49,28 +50,11 @@
   const clone = (x) => JSON.parse(JSON.stringify(x));
   const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
   const isTl = (t) => isObj(t) && typeof t.name === 'string' && typeof t.source === 'string';
-  const validImage = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(s);
   const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const newId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // Lehrkraft-Ansicht an einem anderen Gerät (Lehrer-PC), angemeldet mit Passwort.
   // Dort bleibt nichts im Browser liegen, alles kommt vom Laptop und geht dorthin zurück.
   const REMOTE = location.pathname === '/lehrkraft';
-
-  /* ---------- Textbreiten messen ---------- */
-
-  const mctx = document.createElement('canvas').getContext('2d');
-  const mcache = new Map();
-  function measure(text, weight, size, fam) {
-    const key = weight + '|' + size.toFixed(2) + '|' + fam + '|' + text;
-    let w = mcache.get(key);
-    if (w === undefined) {
-      mctx.font = `${weight} ${size.toFixed(2)}px ${fam}`;
-      w = mctx.measureText(text).width;
-      if (mcache.size > 5000) mcache.clear();
-      mcache.set(key, w);
-    }
-    return w;
-  }
 
   /* ---------- Speicher ---------- */
 
@@ -1432,24 +1416,6 @@
 
   /* ---------- Dateien ---------- */
 
-  function download(filename, blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  }
-
-  function slug(name) {
-    const s = (name || '').toLowerCase()
-      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-    return s || 'zeitstrahl';
-  }
-
   // Nur Bilder mitnehmen, auf die eine Zeile wirklich verweist
   function usedImages(tl) {
     const keys = new Set();
@@ -1615,8 +1581,6 @@
 
   /* ---------- Öffnen: Textdateien, Tabellen, Sicherungen, Schülerbeiträge ---------- */
 
-  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max || 2000) : '');
-
   // Excel unter Windows speichert CSV oft nicht als UTF-8. Dann ergeben Umlaute
   // Fehlerzeichen, und die Datei wird als Windows-1252 gelesen.
   async function readText(file) {
@@ -1626,8 +1590,6 @@
     return text.replace(/^﻿/, '');
   }
 
-  // Liest eine Datei und liefert die enthaltenen Zeitstrahlen.
-  // backup: die Datei ist eine Sicherung mehrerer Zeitstrahlen
   // Zeitstrahlen aus einer .json-Sicherung
   function timelinesOf(data) {
     return data.timelines.filter(isTl).map((t) => ({ name: t.name, source: t.source, images: cleanImages(t.images) }));
@@ -1661,6 +1623,8 @@
     return { backup: true, list };
   }
 
+  // Liest eine Datei und liefert die enthaltenen Zeitstrahlen.
+  // backup: die Datei ist eine Sicherung mehrerer Zeitstrahlen
   async function readFile(file) {
     const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
     if (/\.zip$/i.test(file.name) || (head[0] === 0x50 && head[1] === 0x4B && head[2] === 3 && head[3] === 4)) {
@@ -1692,8 +1656,8 @@
       }
       if (isObj(data) && Array.isArray(data.timelines)) {
         const list = timelinesOf(data);
-        // „Alle Zeitstrahlen sichern“, die Tagessicherungen des Servers und ältere Sicherungen mit mehreren Zeitstrahlen
-        return { backup: data.alle === true || data.app === 'zeitstrahl-werkstatt' || list.length > 1, list };
+        // Eine Datei mit mehreren Zeitstrahlen gilt als Sicherung
+        return { backup: list.length > 1, list };
       }
       throw new Error(`${file.name} ist keine Zeitstrahl-Datei.`);
     }
@@ -1768,34 +1732,16 @@
 
   /* ---------- Farben ---------- */
 
-  const THEMES = { system: 'Farben: automatisch', light: 'Farben: hell', dark: 'Farben: Tafel' };
   let theme = 'system';
-  const shownTheme = () => (theme !== 'system' ? theme
-    : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   function applyTheme(t, save) {
-    theme = THEMES[t] ? t : 'system';
-    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', theme);
+    theme = setTheme(t);
     document.querySelectorAll('.theme-btn').forEach((b) => {
       // Der Knopf in der Kopfleiste zeigt nur ein Symbol, der Name steht im Tooltip
-      if (b.classList.contains('theme-icon')) {
-        b.setAttribute('aria-label', THEMES[theme]);
-        b.title = THEMES[theme] + ' (zum Umschalten klicken)';
-      } else b.textContent = THEMES[theme];
+      if (b.classList.contains('theme-icon')) labelThemeIcon(b, theme);
+      else b.textContent = THEMES[theme];
     });
     if (save) { try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* egal */ } }
     requestRender();
-  }
-
-  /* ---------- Hinweise ---------- */
-
-  let toastTimer = 0;
-  function toast(msg) {
-    const t = $('toast');
-    t.textContent = msg;
-    t.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, 4200);
   }
 
   /* ---------- Ereignisse verdrahten ---------- */
@@ -2022,9 +1968,7 @@
 
     // Farben
     document.querySelectorAll('.theme-btn').forEach((b) => b.addEventListener('click', () => {
-      // Immer ins Gegenteil des Sichtbaren: „automatisch“ kann im Dunkelmodus wie „Tafel“ aussehen,
-      // ein Schritt dorthin würde dann scheinbar nichts tun
-      applyTheme(shownTheme() === 'dark' ? 'light' : 'dark', true);
+      applyTheme(shownTheme(theme) === 'dark' ? 'light' : 'dark', true);
     }));
 
     // Datei-Menü
@@ -2139,7 +2083,7 @@
 
     if (document.fonts) {
       const onFonts = () => {
-        mcache.clear();
+        clearMeasure();
         if (!userMovedView) view = fitView();
         requestRender();
       };

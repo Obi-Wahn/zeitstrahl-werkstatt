@@ -12,15 +12,14 @@
  * damit dieses Modul auch ohne Browser testbar bleibt.
  */
 (function (root, factory) {
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.ZeitstrahlLayout = api;
-})(typeof self !== 'undefined' ? self : this, () => {
+  // Monatslisten kommen aus dem Parser (im Browser vorher geladen)
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./parser.js'));
+  else root.ZeitstrahlLayout = factory(root.ZeitstrahlParser);
+})(typeof self !== 'undefined' ? self : this, (Parser) => {
   'use strict';
 
   const STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
-  const CUM = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  const MONTH_ABBR = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'];
+  const { CUM, MONTH_ABBR } = Parser;
 
   const f = (n) => Math.round(n * 10) / 10;
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -65,10 +64,7 @@
   }
 
   function spanLabelParts(it, M, measure, fam) {
-    return {
-      tW: measure(it.title, 700, M.barFont, fam),
-      dW: measure(it.shortDate, 400, M.barDate, fam),
-    };
+    return { tW: measure(it.title, 700, M.barFont, fam), dW: measure(it.shortDate, 400, M.barDate, fam) };
   }
 
   // Historische Jahreszahl h (negativ = v. Chr.) als Beschriftung

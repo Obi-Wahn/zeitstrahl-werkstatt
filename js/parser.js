@@ -4,7 +4,7 @@
  * Liest die Textzeilen eines Zeitstrahls und macht daraus Einträge.
  * Eine Zeile hat die Form:
  *
- *   Datum | Titel | Kategorie | Beschreibung
+ *   Datum; Titel; Kategorie; Beschreibung
  *
  * Intern rechnet der Parser mit der "astronomischen" Jahreszählung:
  * 1 v. Chr. = 0, 2 v. Chr. = -1, 44 v. Chr. = -43 usw.
@@ -347,15 +347,8 @@
   }
 
   // Zerlegt eine Zeile in Datum, Titel, Kategorie und Beschreibung. Trenner ist das
-  // Semikolon; ältere Zeilen mit „|“ gelten weiter. Es zählt, welches Zeichen zuerst
-  // vorkommt. Beim Semikolon trennen nur die ersten drei, weitere bleiben in der Beschreibung.
+  // Semikolon; nur die ersten drei trennen, weitere bleiben in der Beschreibung.
   function splitLine(line) {
-    const semi = line.indexOf(';');
-    const bar = line.indexOf('|');
-    if (bar >= 0 && (semi < 0 || bar < semi)) {
-      const parts = line.split('|').map((p) => p.trim());
-      return parts.slice(0, 3).concat(parts.length > 3 ? [parts.slice(3).join(' | ')] : []);
-    }
     const parts = line.split(';');
     return parts.slice(0, 3).concat(parts.length > 3 ? [parts.slice(3).join(';')] : []).map((p) => p.trim());
   }
@@ -411,9 +404,9 @@
     return { items, problems, cats };
   }
 
-  // Macht Text aus einem Formular zeilentauglich: keine Trennstriche, Klammern oder Umbrüche
+  // Macht Text aus einem Formular zeilentauglich: keine Klammern oder Umbrüche
   function cleanField(s) {
-    return String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/\|/g, '/').replace(/[{}]/g, '').replace(/\s{2,}/g, ' ').trim();
+    return String(s || '').replace(/[\r\n\t]+/g, ' ').replace(/[{}]/g, '').replace(/\s{2,}/g, ' ').trim();
   }
 
   // Baut eine Zeile im Zeitstrahl-Format, z. B. aus einem Schülerbeitrag. In Datum, Titel
@@ -469,7 +462,7 @@
     beschreibung: /^(beschreibung|text|erkl|notiz|info|details)/i,
   };
 
-  // Tabelle → Zeilen im Format „Datum | Titel | Kategorie | Beschreibung“.
+  // Tabelle → Zeilen im Format „Datum; Titel; Kategorie; Beschreibung“.
   // Eine Kopfzeile wird erkannt, wenn in ihrer ersten Zelle keine Ziffer steht;
   // dann zählen die Spaltennamen, sonst gilt die Reihenfolge Datum, Titel, Kategorie, Beschreibung.
   function tableToSource(text) {

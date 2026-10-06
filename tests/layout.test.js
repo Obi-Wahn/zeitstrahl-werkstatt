@@ -82,12 +82,12 @@ test('Stark vergrößert zeigt die Skala Monate mit Jahreszahl', () => {
 console.log('Ereignisse');
 
 test('Spuren verhindern Überlappungen', () => {
-  const g = L.layout(items('1517 | Ein langer Titel A\n1518 | Ein langer Titel B\n1519 | Ein langer Titel C'), { v0: 1500, v1: 1540 }, 800, opts());
+  const g = L.layout(items('1517; Ein langer Titel A\n1518; Ein langer Titel B\n1519; Ein langer Titel C'), { v0: 1500, v1: 1540 }, 800, opts());
   assertNoOverlap(g);
 });
 
 test('dichte Ereignisse verteilen sich auf beide Seiten der Achse', () => {
-  const src = Array.from({ length: 8 }, (_, i) => `${1517 + i * 3} | Ein recht langer Titel ${i}`).join('\n');
+  const src = Array.from({ length: 8 }, (_, i) => `${1517 + i * 3}; Ein recht langer Titel ${i}`).join('\n');
   const g = L.layout(items(src), { v0: 1450, v1: 1650 }, 1200, opts());
   assertNoOverlap(g);
   assert.ok(g.evs.some((e) => e.below) && g.evs.some((e) => !e.below));
@@ -98,7 +98,7 @@ test('dichte Ereignisse verteilen sich auf beide Seiten der Achse', () => {
 });
 
 test('Fähnchen am Rand ragen nicht aus dem Bild', () => {
-  const g = L.layout(items('1449 | Ein langer Titel am Anfang\n1649 | Ein langer Titel am Ende'), { v0: 1448, v1: 1650 }, 800, opts());
+  const g = L.layout(items('1449; Ein langer Titel am Anfang\n1649; Ein langer Titel am Ende'), { v0: 1448, v1: 1650 }, 800, opts());
   for (const e of g.evs) {
     const [l, r] = box(e);
     assert.ok(l >= 0 && r <= 800, e.it.title);
@@ -108,7 +108,7 @@ test('Fähnchen am Rand ragen nicht aus dem Bild', () => {
 test('viele zufällige Ereignisse: nichts überdeckt sich, nichts ragt hinaus', () => {
   for (const seed of [1, 2, 3, 4, 5]) {
     const r = zufall(seed);
-    const src = Array.from({ length: 60 }, (_, i) => `${1801 + Math.floor(r() * 198)} | ${'Titel '.repeat(1 + Math.floor(r() * 4))}${i}`).join('\n');
+    const src = Array.from({ length: 60 }, (_, i) => `${1801 + Math.floor(r() * 198)}; ${'Titel '.repeat(1 + Math.floor(r() * 4))}${i}`).join('\n');
     const g = L.layout(items(src), { v0: 1800, v1: 2000 }, 1200, opts());
     assert.equal(g.evs.length, 60);
     assertNoOverlap(g);
@@ -122,12 +122,12 @@ test('viele zufällige Ereignisse: nichts überdeckt sich, nichts ragt hinaus', 
 });
 
 test('Ereignisse außerhalb des Ausschnitts fallen weg', () => {
-  const g = L.layout(items('1400 | Zu früh\n1520 | Drin\n1700 | Zu spät'), { v0: 1500, v1: 1540 }, 800, opts());
+  const g = L.layout(items('1400; Zu früh\n1520; Drin\n1700; Zu spät'), { v0: 1500, v1: 1540 }, 800, opts());
   assert.deepEqual(g.evs.map((e) => e.it.title), ['Drin']);
 });
 
 test('doppelter Maßstab ergibt ein doppelt so großes Bild', () => {
-  const list = items('1517 | Thesenanschlag\n1521 | Reichstag zu Worms\n1524–1526 | Bauernkrieg');
+  const list = items('1517; Thesenanschlag\n1521; Reichstag zu Worms\n1524–1526; Bauernkrieg');
   const g1 = L.layout(list, { v0: 1500, v1: 1540 }, 800, opts());
   const g2 = L.layout(list, { v0: 1500, v1: 1540 }, 1600, opts({ scale: 2 }));
   assert.ok(Math.abs(g2.H - 2 * g1.H) < 1, `${g1.H} und ${g2.H}`);
@@ -136,7 +136,7 @@ test('doppelter Maßstab ergibt ein doppelt so großes Bild', () => {
 console.log('Zeiträume');
 
 test('Zeiträume stehen abgetrennt unter den Ereignissen', () => {
-  const g = L.layout(items('1517 | A\n1520 | B\n1524–1526 | Bauernkrieg'), { v0: 1500, v1: 1540 }, 800, opts());
+  const g = L.layout(items('1517; A\n1520; B\n1524–1526; Bauernkrieg'), { v0: 1500, v1: 1540 }, 800, opts());
   assert.ok(g.spansZone > g.axisY);
   for (const e of g.evs) assert.ok(e.y < g.spansZone);
   for (const sp of g.sps) assert.ok(sp.y > g.spansZone);
@@ -144,11 +144,11 @@ test('Zeiträume stehen abgetrennt unter den Ereignissen', () => {
 
 test('Zeiträume und ihre Beschriftungen überdecken sich nicht', () => {
   const g = L.layout(items([
-    '1517–1555 | Reformation',
-    '1524–1526 | Bauernkrieg',
-    '1530–1531 | Augsburger Reichstag',
-    '1546–1547 | Schmalkaldischer Krieg',
-    '1538–1539 | Ein sehr langer Name für einen kurzen Zeitraum',
+    '1517–1555; Reformation',
+    '1524–1526; Bauernkrieg',
+    '1530–1531; Augsburger Reichstag',
+    '1546–1547; Schmalkaldischer Krieg',
+    '1538–1539; Ein sehr langer Name für einen kurzen Zeitraum',
   ].join('\n')), { v0: 1500, v1: 1560 }, 800, opts());
   assert.equal(g.sps.length, 5);
   const area = (sp) => [Math.min(sp.x0, sp.labelX), Math.max(sp.x1, sp.labelX + sp.tW + 7 + sp.dW)];
@@ -165,7 +165,7 @@ test('Zeiträume und ihre Beschriftungen überdecken sich nicht', () => {
 });
 
 test('ohne Zeiträume gibt es keinen Bereich dafür', () => {
-  const g = L.layout(items('1517 | A'), { v0: 1500, v1: 1540 }, 800, opts());
+  const g = L.layout(items('1517; A'), { v0: 1500, v1: 1540 }, 800, opts());
   assert.equal(g.spansZone, null);
   assert.equal(g.sps.length, 0);
 });
@@ -173,14 +173,14 @@ test('ohne Zeiträume gibt es keinen Bereich dafür', () => {
 console.log('SVG');
 
 test('Titel werden im SVG sicher dargestellt', () => {
-  const g = L.layout(items('1517 | <script>alert(1)</script> & "Luther"'), { v0: 1500, v1: 1540 }, 800, opts());
+  const g = L.layout(items('1517; <script>alert(1)</script> & "Luther"'), { v0: 1500, v1: 1540 }, 800, opts());
   const svg = L.svgBody(g, PAINT, { interactive: true });
   assert.ok(!svg.includes('<script'));
   assert.ok(svg.includes('&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;Luther&quot;'));
 });
 
 test('Lückenbild zeigt Daten, aber keine Titel', () => {
-  const list = items('1517 | Thesenanschlag\n1524–1526 | Bauernkrieg');
+  const list = items('1517; Thesenanschlag\n1524–1526; Bauernkrieg');
   const g = L.layout(list, { v0: 1500, v1: 1540 }, 800, opts());
   const svg = L.svgBody(g, PAINT, { blank: true });
   assert.ok(svg.includes('1517') && svg.includes('1524–1526'));
@@ -188,14 +188,14 @@ test('Lückenbild zeigt Daten, aber keine Titel', () => {
 });
 
 test('Lückenbild hat dieselbe Anordnung wie das Bild', () => {
-  const list = items('1517 | Thesenanschlag\n1521 | Reichstag zu Worms\n1522 | Wartburg\n1524–1526 | Bauernkrieg\n1530 | Augsburger Bekenntnis');
+  const list = items('1517; Thesenanschlag\n1521; Reichstag zu Worms\n1522; Wartburg\n1524–1526; Bauernkrieg\n1530; Augsburger Bekenntnis');
   const g = L.layout(list, { v0: 1510, v1: 1535 }, 500, opts());
   const rects = (svg) => svg.match(/<rect [^>]*>/g).join('\n');
   assert.equal(rects(L.svgBody(g, PAINT, { blank: true })), rects(L.svgBody(g, PAINT, {})));
 });
 
 test('„heute“ erscheint nur, wenn es im Ausschnitt liegt', () => {
-  const g = L.layout(items('2000 | A'), { v0: 1990, v1: 2030 }, 800, opts());
+  const g = L.layout(items('2000; A'), { v0: 1990, v1: 2030 }, 800, opts());
   assert.ok(L.svgBody(g, PAINT, { todayPos: 2026.75 }).includes('>heute<'));
   assert.ok(!L.svgBody(g, PAINT, { todayPos: 2050 }).includes('>heute<'));
 });
