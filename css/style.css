@@ -144,7 +144,7 @@ body {
   white-space: nowrap;
 }
 .picker { flex: 1 1 200px; max-width: 380px; min-width: 0; }
-.picker select {
+.picker select, .freigabe-row select {
   font: inherit;
   font-weight: 700;
   color: var(--ink);
@@ -937,6 +937,30 @@ body.present .detail-img { max-height: 46vh; }
 .locked-msg { margin: 0; }
 #deleted-msg p { margin: 0 0 10px; }
 .feedback-card { border-color: var(--board); }
+
+/* Zeitstrahl der Lehrkraft auf der Schülerseite: nur ansehen, drucken, als Bild speichern */
+.freigabe-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  border-color: var(--board);
+}
+.freigabe-card h2 { margin: 0; }
+.freigabe-name { margin: 4px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.review.freigabe { width: min(1100px, calc(100% - 24px)); }
+.review.freigabe .eyebrow { margin: 0; }
+.freigabe-body { overflow: auto; padding: 12px 20px; display: grid; gap: 12px; }
+.freigabe-body .preview { overflow-x: auto; border: 0; }
+.freigabe-body .preview .item { cursor: pointer; }
+.freigabe-detail {
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--sheet);
+}
+.freigabe-detail h3 { margin: 6px 0 4px; font-family: var(--f-display); font-size: 23px; line-height: 1.15; }
 .feedback-text {
   margin: 0;
   font-size: 18px;
@@ -997,6 +1021,20 @@ body.present .detail-img { max-height: 46vh; }
 #task-auftrag { min-height: 0; font-family: var(--f-ui); font-size: 15px; line-height: 1.45; }
 .task-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .task-state { font-size: 14px; color: var(--ink-soft); }
+
+/* Zeitstrahl, den die Schüler auf ihrer Seite ansehen können */
+.freigabe-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.freigabe-row label { font-size: 14px; font-weight: 700; }
+.freigabe-row select { flex: 1 1 240px; width: auto; min-width: 0; }
+.freigabe-row .note { flex-basis: 100%; margin: 0; font-size: 13.5px; color: var(--ink-soft); }
 
 .abgaben-list { overflow: auto; padding: 8px 20px 12px; display: grid; gap: 6px; }
 .abgaben-list h3 { margin: 10px 0 2px; font-family: var(--f-display); font-size: 20px; }
