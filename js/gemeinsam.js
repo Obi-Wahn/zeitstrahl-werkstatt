@@ -22,6 +22,22 @@
   const str = (v, max) => (typeof v === 'string' ? v.slice(0, max).trim() : '');
 
   // Bilder stecken als data:-URL in den Zeitstrahlen
+  // Vorgegebene Kategorien der Lehrkraft: höchstens 8 (so viele Farben gibt es), ohne doppelte.
+  // Semikolon und Klammern würden die Zeile zerlegen, Kommas trennen die Liste beim Eintippen.
+  const MAX_KATEGORIEN = 8;
+  function cleanKategorien(list) {
+    const seen = new Set();
+    const out = [];
+    for (const v of Array.isArray(list) ? list : []) {
+      const k = str(v, 40).replace(/[;,{}]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      if (!k || seen.has(k.toLowerCase())) continue;
+      seen.add(k.toLowerCase());
+      out.push(k);
+      if (out.length === MAX_KATEGORIEN) break;
+    }
+    return out;
+  }
+
   const validImage = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(s);
 
   /* ---------- Nur im Browser ---------- */
@@ -84,5 +100,5 @@
     b.title = THEMES[theme] + ' (zum Umschalten klicken)';
   }
 
-  return { slug, str, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon };
+  return { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon };
 });

@@ -32,7 +32,7 @@
   // geloescht: Die Lehrkraft hat den gespeicherten Zeitstrahl gelöscht, die Gruppe entscheidet, ob er neu gespeichert wird.
   const emptyWork = () => ({ id: '', code: '', thema: '', titel: '', von: '', status: '', saved: '', rev: 0, savedRev: 0, rueckmeldung: '', geloescht: false, entries: [] });
   let work = emptyWork();
-  let task = { thema: '', auftrag: '', gesperrt: false };
+  let task = { thema: '', auftrag: '', kategorien: [], gesperrt: false };
   let serverMode = false;
   let busy = false;
   let editIndex = -1;
@@ -106,6 +106,7 @@
     $('topic-hint').textContent = hint ? `Eure Lehrkraft hat ein neues Thema vorgegeben: „${task.thema}“. Dafür unten „Neuen Zeitstrahl beginnen“ antippen.` : '';
     $('topic-hint').hidden = !hint;
     document.title = shown ? `${shown} · Mein Zeitstrahl` : 'Mein Zeitstrahl';
+    renderKatChoices();
   }
 
   function fillGroup() {
@@ -115,6 +116,63 @@
   }
 
   /* ---------- Formular für ein Ereignis ---------- */
+
+  // Vorgegebene Kategorien gelten nur für einen Zeitstrahl zum aktuellen Thema
+  const presetKats = () => (serverMode && (!work.id || work.thema === task.thema) && Array.isArray(task.kategorien) ? task.kategorien : []);
+  const sameKats = (a, b) => (a || []).join('\n') === (b || []).join('\n');
+
+  // Mit Vorgabe tippen die Schüler eine Kategorie an statt sie einzugeben. Der Wert steht
+  // weiter im (dann versteckten) Textfeld, damit Speichern und Bearbeiten gleich bleiben.
+  function renderKatChoices() {
+    const kats = presetKats();
+    const on = kats.length > 0;
+    const box = $('f-kat-choices');
+    $('f-kategorie').hidden = on;
+    $('f-kategorie-note').hidden = on;
+    $('f-kat-choices-note').hidden = !on;
+    box.hidden = !on;
+    box.textContent = '';
+    if (!on) return;
+    const cur = val('f-kategorie');
+    const colors = Parser.presetColors(kats);
+    const list = kats.slice();
+    // Eine Kategorie, die die Lehrkraft inzwischen gestrichen hat, bleibt beim Bearbeiten wählbar
+    const alt = cur && !kats.some((k) => k.toLowerCase() === cur.toLowerCase());
+    if (alt) list.push(cur);
+    for (const name of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'kat-choice' + (alt && name === cur ? ' alt' : '');
+      b.setAttribute('role', 'radio');
+      const checked = name.toLowerCase() === cur.toLowerCase();
+      b.setAttribute('aria-checked', String(checked));
+      b.tabIndex = checked || (!cur && name === list[0]) ? 0 : -1;
+      const ci = colors.get(name.toLowerCase());
+      if (ci) b.style.setProperty('--c', `var(--cat-${ci})`);
+      const sw = document.createElement('span');
+      sw.className = 'sw';
+      sw.setAttribute('aria-hidden', 'true');
+      b.append(sw, name);
+      b.addEventListener('click', () => {
+        $('f-kategorie').value = name;
+        $('form-msg').textContent = '';
+        renderKatChoices();
+        box.querySelector('[aria-checked="true"]').focus();
+      });
+      box.append(b);
+    }
+  }
+
+  // Pfeiltasten wandern wie bei Optionsfeldern durch die Kategorien
+  $('f-kat-choices').addEventListener('keydown', (ev) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+    if (!step) return;
+    const all = [...$('f-kat-choices').querySelectorAll('.kat-choice')];
+    const i = all.indexOf(document.activeElement);
+    if (i < 0) return;
+    ev.preventDefault();
+    all[(i + step + all.length) % all.length].click();
+  });
 
   function dateInfo(text) {
     const r = Parser.parseDateField(text, NOW);
@@ -162,6 +220,7 @@
     $('form-title').textContent = 'Neues Ereignis';
     $('f-submit').textContent = 'Zum Zeitstrahl hinzufügen';
     $('f-cancel').hidden = true;
+    renderKatChoices();
     checkDate();
     updateCounter();
   }
@@ -172,6 +231,7 @@
     $('f-datum').value = e.datum;
     $('f-ereignis').value = e.titel;
     $('f-kategorie').value = e.kategorie || '';
+    renderKatChoices();
     $('f-text').value = e.beschreibung || '';
     $('f-quelle').value = e.quelle || '';
     showImage(e.bild || '');
@@ -203,6 +263,11 @@
       return fail('f-datum', info.text);
     }
     if (!titel) return fail('f-ereignis', 'Bitte das Ereignis benennen.');
+    if (presetKats().length && !val('f-kategorie')) {
+      $('form-msg').textContent = 'Bitte eine Kategorie antippen.';
+      $('f-kat-choices').querySelector('.kat-choice').focus();
+      return;
+    }
     if (bildData && !val('f-quelle')) return fail('f-quelle', 'Bitte angeben, woher das Bild stammt.');
     const e = {
       datum,
@@ -292,7 +357,7 @@
     if (!n) { box.hidden = true; box.textContent = ''; return; }
     box.hidden = false;
     const src = work.entries.map((e) => Parser.buildLine({ ...e, bild: e.bild ? 'vorschau' : '' })).join('\n');
-    const { items } = Parser.parseSource(src, NOW);
+    const { items } = Parser.parseSource(src, NOW, presetKats());
     const W = box.clientWidth || 600;
     if (!items.length) { box.textContent = ''; return; }
     let lo = Infinity;
@@ -341,8 +406,11 @@
       if (t.ok) {
         const neu = await t.json();
         const changed = neu.gesperrt !== task.gesperrt || neu.thema !== task.thema || neu.auftrag !== task.auftrag;
+        const katsChanged = !sameKats(neu.kategorien, task.kategorien);
         task = neu;
         if (changed) { renderHead(); renderStatus(); }
+        else if (katsChanged) renderKatChoices();
+        if (changed || katsChanged) renderPreview();
       }
       if (work.code) {
         const r = await fetch(`api/abgaben/code/${encodeURIComponent(work.code)}/stand`, { cache: 'no-store' });
@@ -737,6 +805,7 @@
       $('step-3').textContent = 'Fertig? Als Datei speichern und abgeben';
     }
     renderHead();
+    renderPreview(); // Farben der vorgegebenen Kategorien
     renderStatus();
     scheduleAutosave();
     if (on) {

@@ -101,7 +101,8 @@
       </div>
 
       <div class="field">
-        <label for="f-kategorie">Kategorie</label>
+        <label for="f-kategorie" id="f-kategorie-label">Kategorie</label>
+        <div class="kat-choices" id="f-kat-choices" role="radiogroup" aria-labelledby="f-kategorie-label" hidden></div>
         <input id="f-kategorie" type="text" maxlength="40" autocomplete="off" list="kategorien" placeholder="z. B. Politik">
         <datalist id="kategorien">
           <option value="Politik"></option>
@@ -113,7 +114,8 @@
           <option value="Personen"></option>
           <option value="Epoche"></option>
         </datalist>
-        <span class="note">Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche haben feste Farben. Eigene Kategorien bekommen automatisch eine Farbe.</span>
+        <span class="note" id="f-kategorie-note">Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche haben feste Farben. Eigene Kategorien bekommen automatisch eine Farbe.</span>
+        <span class="note" id="f-kat-choices-note" hidden>Eure Lehrkraft hat die Kategorien vorgegeben. Bitte eine antippen.</span>
       </div>
 
       <div class="field">

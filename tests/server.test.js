@@ -242,7 +242,9 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
     let gruppe;
 
     await test('Thema der Lehrkraft gilt für neue Abgaben', async () => {
-      assert.equal((await c.laptop('PUT', '/api/aufgabe', { thema: 'Reformation in Sachsen', auftrag: 'Zehn Ereignisse' })).status, 200);
+      const r = await c.laptop('PUT', '/api/aufgabe', { thema: 'Reformation in Sachsen', auftrag: 'Zehn Ereignisse', kategorien: [' Politik ', 'Religion', 'politik', 'Sport; Spiel', '', 3] });
+      assert.equal(r.status, 200);
+      assert.deepEqual(r.json.kategorien, ['Politik', 'Religion', 'Sport Spiel'], 'gekürzt, ohne Doppelte, ohne Semikolon');
       gruppe = (await c.schueler('POST', '/api/abgaben', abgabe('Lena', 'Luther', [ereignis('Thesenanschlag')], { thema: 'Eigenes' }))).json;
       assert.equal(gruppe.thema, 'Reformation in Sachsen');
     });
@@ -251,6 +253,7 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
       const vorher = fs.readFileSync(path.join(abgabenOrdner(dir), dateienIn(abgabenOrdner(dir))[0]), 'utf8');
       const r = await c.laptop('PUT', '/api/aufgabe', { gesperrt: true });
       assert.equal(r.json.thema, 'Reformation in Sachsen', 'nur das Schloss umlegen, Thema bleibt');
+      assert.deepEqual(r.json.kategorien, ['Politik', 'Religion', 'Sport Spiel'], 'Kategorien bleiben auch');
       assert.equal(r.json.gesperrt, true);
       const save = await c.schueler('POST', '/api/abgaben', abgabe('Lena', 'Luther', [ereignis('Überschrieben?')], gruppe));
       assert.equal(save.status, 423);
@@ -258,6 +261,13 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
       assert.equal(fs.readFileSync(path.join(abgabenOrdner(dir), dateienIn(abgabenOrdner(dir))[0]), 'utf8'), vorher);
       assert.equal(dateienIn(abgabenOrdner(dir)).length, 1);
       assert.equal((await c.schueler('GET', `/api/abgaben/code/${gruppe.code}/stand`)).json.gesperrt, true);
+    });
+
+    await test('Die iPads sehen die vorgegebenen Kategorien, höchstens acht', async () => {
+      assert.deepEqual((await c.schueler('GET', '/api/aufgabe')).json.kategorien, ['Politik', 'Religion', 'Sport Spiel']);
+      const viele = Array.from({ length: 12 }, (_, i) => 'K' + i);
+      const r = await c.laptop('PUT', '/api/aufgabe', { thema: 'Reformation in Sachsen', auftrag: 'Zehn Ereignisse', kategorien: viele, gesperrt: true });
+      assert.deepEqual(r.json.kategorien, viele.slice(0, 8));
     });
 
     await test('Wieder freigegeben: Speichern klappt', async () => {
