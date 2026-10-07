@@ -106,7 +106,7 @@ Der Browser merkt sich Daten getrennt je Port. Nach einem Wechsel holt die Lehrk
 | Bereich | Was es kann |
 | --- | --- |
 | Zeitstrahl | Zoomen (Mausrad, zwei Finger, `+` `−`), Verschieben (Ziehen, `←` `→`), „Alles zeigen“ (`0`). Ereignisse als Fähnchen, Zeiträume als Balken, Linie für „heute“. |
-| Kategorien | Farbig, per Klick ein- und ausblendbar. |
+| Kategorien | Farbig, per Klick ein- und ausblendbar. Auf Wunsch gibt die Lehrkraft beim Thema bis zu acht vor, dann tippen die iPads nur noch eine davon an. |
 | Details | Klick auf einen Eintrag zeigt Datum, „vor … Jahren“, Dauer, Beschreibung, Bild, Verfasser und Bildquelle. Bilder lassen sich dort auch selbst hinzufügen. |
 | Tafelbild | Vollbild für den Beamer, große Schrift. **Schrittweise aufdecken** blättert in zeitlicher Reihenfolge (Pfeiltasten, Leertaste oder Presenter). |
 | Farben | Automatisch, hell oder „Tafel“ (dunkel mit Kreidefarben), umschaltbar über den Knopf ◐ neben „Datei“ und im Tafelbild. |
@@ -150,7 +150,7 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
 
 - **Keine Cloud, keine Konten:** Der Server läuft nur auf dem Laptop und nur, solange das Fenster offen ist.
 - **Daten im Ordner `daten/`:**
-  - `aufgabe.json`: das aktuelle Thema, der Arbeitsauftrag und ob die Abgabe beendet ist
+  - `aufgabe.json`: das aktuelle Thema, der Arbeitsauftrag, die vorgegebenen Kategorien und ob die Abgabe beendet ist
   - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei wie `reformation-lena-und-tom-K7M2X.json` (Thema, Vornamen, Code, Rückmeldung der Lehrkraft)
   - `archiv/`: gelöschte Abgaben
   - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`

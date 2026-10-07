@@ -15,9 +15,10 @@
  * Port und Passwort stehen in einstellungen.txt. Die Datei legt der Server beim
  * ersten Start an, sie gehört nicht ins Repository.
  *
- * Ablauf: Die Lehrkraft gibt ein Thema vor (daten/aufgabe.json). Schülerinnen
- * und Schüler bauen dazu auf dem iPad je einen eigenen Zeitstrahl und speichern
- * ihn hier (daten/abgaben). Mit einem kurzen Code arbeiten sie später weiter.
+ * Ablauf: Die Lehrkraft gibt ein Thema und auf Wunsch Kategorien vor
+ * (daten/aufgabe.json). Schülerinnen und Schüler bauen dazu auf dem iPad je einen
+ * eigenen Zeitstrahl und speichern ihn hier (daten/abgaben). Mit einem kurzen
+ * Code arbeiten sie später weiter.
  * Die Zeitstrahlen der Lehrkraft liegen zusätzlich je als eigene Datei in
  * daten/zeitstrahlen, dazu je Tag eine Kopie in daten/sicherungen (die letzten 14 bleiben).
  * Beim ersten Start fragt das Server-Fenster nach einem Passwort. Mit ihm kommt die
@@ -35,7 +36,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const { exec } = require('node:child_process');
-const { slug, str, validImage: imageData } = require('./js/gemeinsam.js'); // dieselben Hilfen wie im Browser
+const { slug, str, cleanKategorien, validImage: imageData } = require('./js/gemeinsam.js'); // dieselben Hilfen wie im Browser
 
 const ROOT = __dirname;
 const DATA = path.join(ROOT, 'daten');
@@ -441,27 +442,31 @@ const tooManyWrongLogins = limiter(LOGIN_TRIES);
 async function readTask() {
   try {
     const d = JSON.parse(await fsp.readFile(TASK, 'utf8'));
-    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), gesperrt: d.gesperrt === true };
+    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), kategorien: cleanKategorien(d.kategorien), gesperrt: d.gesperrt === true };
   } catch (e) {
-    return { thema: '', auftrag: '', gesperrt: false };
+    return { thema: '', auftrag: '', kategorien: [], gesperrt: false };
   }
 }
 
 async function saveTask(req, res) {
   const d = await readJson(req, 64 * 1024);
   const alt = await readTask();
-  // Nur das Schloss umlegen: Thema und Auftrag bleiben, wie sie sind
-  const nurSperre = d.thema === undefined && d.auftrag === undefined;
+  // Nur das Schloss umlegen: Thema, Auftrag und Kategorien bleiben, wie sie sind
+  const nurSperre = d.thema === undefined && d.auftrag === undefined && d.kategorien === undefined;
   const task = {
     thema: nurSperre ? alt.thema : str(d.thema, 140),
     auftrag: nurSperre ? alt.auftrag : str(d.auftrag, 1000),
+    kategorien: nurSperre ? alt.kategorien : cleanKategorien(d.kategorien),
     gesperrt: d.gesperrt === true,
     aktualisiert: new Date().toISOString(),
   };
   await fsp.mkdir(DATA, { recursive: true });
   await writeAtomic(TASK, JSON.stringify(task));
   if (nurSperre) console.log(`${time()}  ${task.gesperrt ? 'Abgabe beendet' : 'Bearbeiten wieder erlaubt'}: „${task.thema || '(ohne Thema)'}“`);
-  else console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`);
+  else {
+    console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`
+      + (task.kategorien.length ? `, Kategorien: ${task.kategorien.join(', ')}` : ''));
+  }
   sendJson(res, 200, task);
 }
 

@@ -12,7 +12,7 @@
   const Zip = window.ZeitstrahlZip;
   const Stand = window.ZeitstrahlStand;
   const SAMPLES = window.ZeitstrahlBeispiele || [];
-  const { slug, str, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
+  const { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
 
   const DB_NAME = 'zeitstrahl-werkstatt';
   const DB_STORE = 'daten';
@@ -238,7 +238,7 @@
 
   const API_HEADERS = { 'X-Zeitstrahl': 'lehrkraft' };
   const server = {
-    on: false, info: null, offline: false, ready: false, abgaben: [], known: new Map(), task: { thema: '', auftrag: '' }, stand: null,
+    on: false, info: null, offline: false, ready: false, abgaben: [], known: new Map(), task: { thema: '', auftrag: '', kategorien: [] }, stand: null,
   };
 
   // Am Lehrer-PC: Nach einem Neustart des Servers oder einem neuen Passwort neu anmelden
@@ -705,6 +705,14 @@
       + `<rect width="${size}" height="${size}" fill="#ffffff"/><path d="${d}" fill="#000000"/></svg>`;
   }
 
+  // Thema, Auftrag und Kategorien wirken auf die rechte Spalte und die Farben eines Schüler-Zeitstrahls
+  function applyTask() {
+    renderKlassePanel();
+    if (!studentView) return;
+    reparse();
+    requestRender();
+  }
+
   async function loadTask() {
     try {
       server.task = await api('api/aufgabe');
@@ -737,6 +745,17 @@
     }
   }
 
+  const splitKategorien = (text) => cleanKategorien(String(text).split(/[,;\n]/));
+
+  // Kategorien des eigenen Zeitstrahls in der Reihenfolge, in der sie zuerst vorkommen
+  function takeOwnKategorien() {
+    const cats = Parser.parseSource(ownTl().source, NOW).cats.map((c) => c.name);
+    const list = cleanKategorien(cats);
+    if (!list.length) return toast('Der Zeitstrahl hat noch keine Kategorien.');
+    $('task-kategorien').value = list.join(', ');
+    if (cats.length > list.length) toast(`Nur die ersten ${MAX_KATEGORIEN} Kategorien übernommen.`);
+  }
+
   async function saveTask(ev) {
     ev.preventDefault();
     try {
@@ -745,11 +764,12 @@
         body: JSON.stringify({
           thema: $('task-thema').value.trim(),
           auftrag: $('task-auftrag').value.trim(),
+          kategorien: splitKategorien($('task-kategorien').value),
           gesperrt: !!server.task.gesperrt,
         }),
       });
       renderTaskState();
-      renderKlassePanel();
+      applyTask();
       toast(server.task.thema ? `Thema „${server.task.thema}“ festgelegt.` : 'Thema zurückgesetzt.');
     } catch (e) {
       toast(e.message);
@@ -763,6 +783,7 @@
     const port = server.info ? server.info.port : 8080;
     $('task-thema').value = server.task.thema || displayName(ownTl()).replace(/\s*\(Beispiel\)\s*$/, '');
     $('task-auftrag').value = server.task.auftrag || '';
+    $('task-kategorien').value = (server.task.kategorien || []).join(', ');
     renderTaskState();
     $('connect-grid').hidden = !ips.length;
     $('connect-none').hidden = ips.length > 0;
@@ -955,8 +976,11 @@
   const shownItems = () => (present && reveal.on ? revealOrder().slice(0, reveal.n) : visibleItems());
   const currentItem = () => (selectedId ? parsed.items.find((i) => i.id === selectedId) : null);
 
+  // Vorgegebene Kategorien färben die Schüler-Zeitstrahlen zum aktuellen Thema einheitlich
+  const presetFor = (tl) => (tl.meta && tl.meta.thema && tl.meta.thema === server.task.thema ? server.task.kategorien : null);
+
   function reparse() {
-    parsed = Parser.parseSource(activeTl().source, NOW);
+    parsed = Parser.parseSource(activeTl().source, NOW, presetFor(activeTl()));
   }
 
   /* ---------- Sichtbarer Zeitraum ---------- */
@@ -2038,6 +2062,7 @@
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
     $('task-form').addEventListener('submit', saveTask);
+    $('task-kat-uebernehmen').addEventListener('click', takeOwnKategorien);
     $('btn-sperre').addEventListener('click', toggleSperre);
     $('zugang-close').addEventListener('click', () => $('zugang').close());
     $('btn-logout').addEventListener('click', logout);
@@ -2114,7 +2139,7 @@
     renderTlNav();
     if (server.on) {
       renderServerUi();
-      loadTask().then(renderKlassePanel);
+      loadTask().then(applyTask);
       pollAbgaben();
       setInterval(pollAbgaben, 5000);
     }

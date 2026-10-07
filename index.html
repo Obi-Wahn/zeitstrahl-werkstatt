@@ -221,6 +221,14 @@
       <label for="task-auftrag">Arbeitsauftrag <span class="label-note">optional</span></label>
       <textarea id="task-auftrag" rows="2" maxlength="1000" placeholder="z. B. Mindestens 6 Ereignisse, davon 2 mit Bild und Bildquelle."></textarea>
     </div>
+    <div class="field task-kat">
+      <label for="task-kategorien">Kategorien <span class="label-note">optional, höchstens 8, mit Komma getrennt</span></label>
+      <div class="task-kat-row">
+        <input id="task-kategorien" type="text" maxlength="400" autocomplete="off" placeholder="z. B. Politik, Religion, Personen, Bauwerke">
+        <button type="button" class="btn" id="task-kat-uebernehmen">Aus meinem Zeitstrahl</button>
+      </div>
+      <span class="note">Mit Vorgabe wählen die iPads nur aus diesen Kategorien. Ohne Vorgabe tippen die Schüler eigene ein. Neue Kategorien am besten hinten anhängen, dann bleiben die Farben gleich.</span>
+    </div>
     <div class="task-actions">
       <button type="submit" class="btn primary">Thema festlegen</button>
       <button type="button" class="btn" id="btn-sperre">Abgabe beenden</button>

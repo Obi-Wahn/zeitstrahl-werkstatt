@@ -55,6 +55,8 @@
   ];
   // Reihenfolge, in der eigene Kategorien freie Farben bekommen
   const FREE_ORDER = [4, 6, 3, 7, 5, 1, 2];
+  // Bei einer Vorgabe reichen die Farben für alle acht Kategorien, dann auch das Grau der Epochen
+  const PRESET_ORDER = [...FREE_ORDER, 8];
 
   /* ---------- Einzelnes Datum ---------- */
 
@@ -309,14 +311,38 @@
 
   /* ---------- Kategorien ---------- */
 
-  function assignCategories(items) {
+  // Farben für die vorgegebenen Kategorien der Lehrkraft: Namen mit fester Farbe behalten sie,
+  // die übrigen bekommen freie Farben in der Reihenfolge der Vorgabe. So sieht eine Kategorie
+  // in jedem Gruppen-Zeitstrahl gleich aus, auch wenn eine Gruppe nicht alle benutzt.
+  function presetColors(preset) {
+    const map = new Map();
+    const used = new Set();
+    const rest = [];
+    for (const name of preset || []) {
+      const key = String(name).toLowerCase();
+      const rule = CATEGORY_RULES.find((r) => r[1].test(key));
+      if (rule && !used.has(rule[0])) { map.set(key, rule[0]); used.add(rule[0]); } else rest.push(key);
+    }
+    let k = 0;
+    for (const key of rest) {
+      let idx = PRESET_ORDER.find((i) => !used.has(i));
+      if (idx === undefined) idx = PRESET_ORDER[k++ % PRESET_ORDER.length];
+      map.set(key, idx);
+      used.add(idx);
+    }
+    return map;
+  }
+
+  function assignCategories(items, preset) {
     const byKey = new Map();
     for (const it of items) {
       if (!byKey.has(it.catKey)) byKey.set(it.catKey, { key: it.catKey, name: it.cat, ci: 0, count: 0 });
       byKey.get(it.catKey).count++;
     }
-    const used = new Set();
+    const fixed = presetColors(preset);
+    const used = new Set(fixed.values());
     for (const c of byKey.values()) {
+      if (fixed.has(c.key)) { c.ci = fixed.get(c.key); continue; }
       const rule = CATEGORY_RULES.find((r) => r[1].test(c.key));
       if (rule) { c.ci = rule[0]; used.add(rule[0]); }
     }
@@ -353,7 +379,8 @@
     return parts.slice(0, 3).concat(parts.length > 3 ? [parts.slice(3).join(';')] : []).map((p) => p.trim());
   }
 
-  function parseSource(src, now) {
+  // preset: vorgegebene Kategorien der Lehrkraft, sie bestimmen die Farben (siehe presetColors)
+  function parseSource(src, now, preset) {
     const items = [];
     const problems = [];
     const lines = String(src).split('\n');
@@ -400,7 +427,7 @@
       }
       items.push(it);
     }
-    const cats = assignCategories(items);
+    const cats = assignCategories(items, preset);
     return { items, problems, cats };
   }
 
@@ -488,6 +515,7 @@
 
   return {
     parseSource,
+    presetColors,
     splitLine,
     buildLine,
     tableToSource,

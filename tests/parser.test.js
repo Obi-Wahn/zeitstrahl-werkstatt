@@ -200,6 +200,24 @@ test('eigene Kategorien bekommen verschiedene Farben', () => {
   assert.equal(cats.find((c) => c.key === 'religion').ci, 2);
 });
 
+test('vorgegebene Kategorien haben in jedem Zeitstrahl dieselbe Farbe', () => {
+  const vorgabe = ['Bauwerke', 'Politik', 'Sport', 'Krieg'];
+  const farbe = (src, key) => P.parseSource(src, NOW, vorgabe).cats.find((c) => c.key === key).ci;
+  // Eine Gruppe benutzt alle, die andere nur Sport: Sport bleibt gleich
+  assert.equal(farbe('1517; A; Politik\n1600; B; Bauwerke\n1700; C; Sport', 'sport'), farbe('1700; C; Sport', 'sport'));
+  assert.equal(farbe('1700; C; Politik', 'politik'), 1, 'feste Farbe bleibt');
+  const map = P.presetColors(vorgabe);
+  assert.equal(new Set(map.values()).size, 4, 'Krieg passt zu Politik, bekommt aber eine eigene Farbe');
+  // Eigene Kategorie daneben nimmt keine Farbe der Vorgabe
+  const { cats } = P.parseSource('1517; A; Mönche', NOW, vorgabe);
+  assert.ok(![...map.values()].includes(cats[0].ci));
+});
+
+test('acht vorgegebene Kategorien bekommen acht Farben', () => {
+  const map = P.presetColors(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+  assert.equal(new Set(map.values()).size, 8);
+});
+
 console.log('Texte');
 
 test('vor … Jahren', () => {
