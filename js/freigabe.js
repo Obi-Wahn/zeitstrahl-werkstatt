@@ -2,7 +2,7 @@
  * Zeitstrahl-Werkstatt · Zeitstrahl der Lehrkraft auf der Schülerseite
  *
  * Die Lehrkraft kann einen ihrer Zeitstrahlen für die iPads sichtbar machen
- * („Thema vorgeben und iPads verbinden“). Die Schüler sehen ihn hier nur an,
+ * (Dialog „Unterricht“). Die Schüler sehen ihn hier nur an,
  * drucken ihn oder speichern ihn als Bild. Er wird nie in den eigenen Zeitstrahl,
  * den Speicher des iPads oder die Abgabe geschrieben.
  */

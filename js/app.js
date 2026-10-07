@@ -351,7 +351,7 @@
     if (!server.abgaben.length) {
       const p = document.createElement('p');
       p.className = 'empty-list';
-      p.textContent = 'Noch keine Schüler-Zeitstrahlen. Über „iPads verbinden“ kommt die Klasse auf die Schülerseite.';
+      p.textContent = 'Noch keine Schüler-Zeitstrahlen. Über „Unterricht“ kommt die Klasse auf die Schülerseite.';
       box.append(p);
       return;
     }
@@ -1914,40 +1914,47 @@
       applyTheme(shownTheme(theme) === 'dark' ? 'light' : 'dark', true);
     }));
 
-    // Datei-Menü
-    const fileBtn = $('btn-file');
-    const menu = $('file-menu');
-    const setMenu = (open) => {
-      menu.hidden = !open;
-      fileBtn.setAttribute('aria-expanded', String(open));
-      if (open) menu.querySelector('button').focus();
+    // Menüs „Datei“ und „Arbeitsblatt“
+    const menus = [...document.querySelectorAll('.menu')].map((box) => ({
+      btn: box.querySelector('[aria-haspopup="menu"]'),
+      list: box.querySelector('.menu-list'),
+    }));
+    const setMenu = (m, open) => {
+      m.list.hidden = !open;
+      m.btn.setAttribute('aria-expanded', String(open));
+      if (open) m.list.querySelector('button').focus();
     };
-    fileBtn.addEventListener('click', () => setMenu(menu.hidden));
+    menus.forEach((m) => {
+      m.btn.addEventListener('click', () => {
+        const open = m.list.hidden;
+        menus.forEach((o) => { if (o !== m) setMenu(o, false); });
+        setMenu(m, open);
+      });
+      m.list.addEventListener('keydown', (e) => {
+        const items = [...m.list.querySelectorAll('button:not([hidden])')];
+        const i = items.indexOf(document.activeElement);
+        if (e.key === 'Escape') { setMenu(m, false); m.btn.focus(); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+      });
+      m.list.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-act]');
+        if (!b) return;
+        setMenu(m, false);
+        const act = b.dataset.act;
+        if (act === 'import') $('file-input').click();
+        else if (act === 'export-txt') exportTxt();
+        else if (act === 'export-json') exportJson();
+        else if (act === 'export-backup') exportAll();
+        else if (act === 'export-png') exportPng(false);
+        else if (act === 'export-png-blank') exportPng(true);
+        else if (act === 'print') printTimeline(false);
+        else if (act === 'print-blank') printTimeline(true);
+        else if (act === 'open-sample') openSamples();
+      });
+    });
     document.addEventListener('click', (e) => {
-      if (!menu.hidden && !e.target.closest('.menu')) setMenu(false);
-    });
-    menu.addEventListener('keydown', (e) => {
-      const items = [...menu.querySelectorAll('button:not([hidden])')];
-      const i = items.indexOf(document.activeElement);
-      if (e.key === 'Escape') { setMenu(false); fileBtn.focus(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
-    });
-    menu.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-act]');
-      if (!b) return;
-      setMenu(false);
-      const act = b.dataset.act;
-      if (act === 'import') $('file-input').click();
-      else if (act === 'export-txt') exportTxt();
-      else if (act === 'export-json') exportJson();
-      else if (act === 'export-backup') exportAll();
-      else if (act === 'export-png') exportPng(false);
-      else if (act === 'export-png-blank') exportPng(true);
-      else if (act === 'print') printTimeline(false);
-      else if (act === 'print-blank') printTimeline(true);
-      else if (act === 'open-sample') openSamples();
-      else if (act === 'zugang') openZugang();
+      if (!e.target.closest('.menu')) menus.forEach((m) => { if (!m.list.hidden) setMenu(m, false); });
     });
     $('empty-sample').addEventListener('click', openSamples);
     $('samples-close').addEventListener('click', () => $('samples').close());
@@ -1980,6 +1987,7 @@
     $('abgaben-close').addEventListener('click', () => $('abgaben').close());
     document.querySelectorAll('.connect-btn').forEach((b) => b.addEventListener('click', openConnect));
     $('connect-close').addEventListener('click', () => $('connect').close());
+    $('connect-zugang').addEventListener('click', () => { $('connect').close(); openZugang(); });
     $('task-form').addEventListener('submit', saveTask);
     $('task-kat-uebernehmen').addEventListener('click', takeOwnKategorien);
     $('task-freigabe').addEventListener('change', saveFreigabe);
