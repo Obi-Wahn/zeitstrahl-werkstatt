@@ -201,7 +201,7 @@ body {
 .btn.primary:hover:not(:disabled) { background: var(--board-strong); }
 .btn.ghost { background: transparent; }
 .btn.danger { color: var(--warn); }
-.btn.armed { background: var(--warn); border-color: var(--warn); color: var(--sheet); }
+.btn.armed, .btn.armed:hover:not(:disabled) { background: var(--warn); border-color: var(--warn); color: var(--sheet); }
 .btn.icon { width: 36px; padding-inline: 0; font-size: 18px; line-height: 1; }
 .btn[aria-pressed="true"] { background: var(--wash); border-color: var(--board); }
 

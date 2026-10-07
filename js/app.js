@@ -1129,7 +1129,6 @@
       sel.append(g);
     }
     sel.value = currentKey();
-    $('btn-del').disabled = state.timelines.length < 2;
   }
 
   function renderLegend() {
@@ -1730,7 +1729,6 @@
     });
     $('btn-del').addEventListener('click', () => {
       const b = $('btn-del');
-      if (state.timelines.length < 2) return;
       if (!delArmed) {
         b.textContent = 'Wirklich löschen?';
         b.classList.add('armed');
@@ -1740,6 +1738,8 @@
       disarmDelete();
       const idx = state.timelines.findIndex((t) => t.id === state.activeId);
       const [gone] = state.timelines.splice(idx, 1);
+      // War es der letzte, gibt es wieder einen leeren Zeitstrahl wie beim leeren Start
+      if (!state.timelines.length) addTimeline({ name: NEW_NAME, source: NEW_SOURCE, images: {} });
       switchTo(state.timelines[Math.max(0, idx - 1)].id, true);
       toast(`„${displayName(gone)}“ gelöscht.`);
     });
