@@ -442,28 +442,38 @@ const tooManyWrongLogins = limiter(LOGIN_TRIES);
 async function readTask() {
   try {
     const d = JSON.parse(await fsp.readFile(TASK, 'utf8'));
-    return { thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), kategorien: cleanKategorien(d.kategorien), gesperrt: d.gesperrt === true };
+    return {
+      thema: str(d.thema, 140), auftrag: str(d.auftrag, 1000), kategorien: cleanKategorien(d.kategorien),
+      gesperrt: d.gesperrt === true, freigabe: str(d.freigabe, 100),
+    };
   } catch (e) {
-    return { thema: '', auftrag: '', kategorien: [], gesperrt: false };
+    return { thema: '', auftrag: '', kategorien: [], gesperrt: false, freigabe: '' };
   }
 }
 
 async function saveTask(req, res) {
   const d = await readJson(req, 64 * 1024);
   const alt = await readTask();
-  // Nur das Schloss umlegen: Thema, Auftrag und Kategorien bleiben, wie sie sind
-  const nurSperre = d.thema === undefined && d.auftrag === undefined && d.kategorien === undefined;
+  // Was nicht mitgeschickt wird, bleibt, wie es ist (z. B. nur das Schloss umlegen)
+  const neu = (key, clean) => (d[key] === undefined ? alt[key] : clean(d[key]));
   const task = {
-    thema: nurSperre ? alt.thema : str(d.thema, 140),
-    auftrag: nurSperre ? alt.auftrag : str(d.auftrag, 1000),
-    kategorien: nurSperre ? alt.kategorien : cleanKategorien(d.kategorien),
-    gesperrt: d.gesperrt === true,
+    thema: neu('thema', (v) => str(v, 140)),
+    auftrag: neu('auftrag', (v) => str(v, 1000)),
+    kategorien: neu('kategorien', cleanKategorien),
+    gesperrt: neu('gesperrt', (v) => v === true),
+    freigabe: neu('freigabe', (v) => str(v, 100)),
     aktualisiert: new Date().toISOString(),
   };
+  const nurSperre = d.thema === undefined && d.auftrag === undefined && d.kategorien === undefined;
   await fsp.mkdir(DATA, { recursive: true });
   await writeAtomic(TASK, JSON.stringify(task));
-  if (nurSperre) console.log(`${time()}  ${task.gesperrt ? 'Abgabe beendet' : 'Bearbeiten wieder erlaubt'}: „${task.thema || '(ohne Thema)'}“`);
-  else {
+  if (d.freigabe !== undefined && task.freigabe !== alt.freigabe) {
+    const t = task.freigabe && files.has(task.freigabe) ? readTimelineFile(task.freigabe) : null;
+    console.log(`${time()}  ${t ? `Für die Schüler sichtbar: „${t.name}“` : 'Kein Zeitstrahl mehr für die Schüler sichtbar'}`);
+  }
+  if (d.gesperrt !== undefined && task.gesperrt !== alt.gesperrt && nurSperre) {
+    console.log(`${time()}  ${task.gesperrt ? 'Abgabe beendet' : 'Bearbeiten wieder erlaubt'}: „${task.thema || '(ohne Thema)'}“`);
+  } else if (!nurSperre) {
     console.log(`${time()}  Thema vorgegeben: „${task.thema || '(frei wählbar)'}“`
       + (task.kategorien.length ? `, Kategorien: ${task.kategorien.join(', ')}` : ''));
   }
@@ -831,6 +841,30 @@ async function saveBackup(req, res) {
   }
 }
 
+/* ---------- Freigegebener Zeitstrahl für die Schülerseite ---------- */
+
+function readTimelineFile(id) {
+  const f = files.get(id);
+  if (!f) return null;
+  try {
+    return JSON.parse(fs.readFileSync(path.join(TIMELINES, f.datei), 'utf8')).timelines[0];
+  } catch (e) {
+    return null;
+  }
+}
+
+// Die iPads fragen alle 20 s nach. Ist der Zeitstrahl unverändert (gleiche Prüfsumme),
+// geht nur eine kurze Antwort zurück, damit Bilder nicht ständig neu übertragen werden.
+async function sendFreigabe(res, known) {
+  await backupQueue; // erst fertig speichern
+  const { freigabe } = await readTask();
+  const f = freigabe && files.get(freigabe);
+  const t = f && readTimelineFile(freigabe);
+  if (!t) return sendJson(res, 200, { leer: true });
+  if (known === f.hash) return sendJson(res, 200, { unveraendert: true, hash: f.hash });
+  sendJson(res, 200, { hash: f.hash, name: t.name, source: t.source, images: t.images && typeof t.images === 'object' ? t.images : {} });
+}
+
 // Lokales Datum als 2026-10-04
 function dayName(d) {
   const z = (n) => String(n).padStart(2, '0');
@@ -868,6 +902,7 @@ async function handle(req, res) {
   // Für alle Geräte (Schülerseite)
   if (p === '/api/status' && m === 'GET') return sendJson(res, 200, { app: 'zeitstrahl-werkstatt', ok: true });
   if (p === '/api/aufgabe' && m === 'GET') return sendJson(res, 200, await readTask());
+  if (p === '/api/freigabe' && m === 'GET') return sendFreigabe(res, url.searchParams.get('hash') || '');
   if (p === '/api/abgaben' && m === 'POST') return saveAbgabe(req, res);
   if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})$/)) && m === 'GET') return loadByCode(req, res, mm[1]);
   if ((mm = p.match(/^\/api\/abgaben\/code\/([A-Za-z0-9]{1,10})\/stand$/)) && m === 'GET') return sendStand(req, res, mm[1]);

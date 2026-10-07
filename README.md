@@ -38,6 +38,7 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
 7. **Abgabe beenden:** Vor dem Präsentieren unter **iPads verbinden** auf **Abgabe beenden** klicken. Dann kann keine Gruppe mehr speichern, und auf den iPads steht, dass die Abgabe beendet ist. **Bearbeiten wieder erlauben** hebt das auf.
 8. **Rückmeldung geben:** In der Übersicht **Schüler-Zeitstrahlen** hat jede Gruppe einen Knopf **Rückmeldung**. Der Text erscheint auf dem iPad der Gruppe, sobald sie mit ihrem Code arbeitet, spätestens nach wenigen Sekunden.
 9. **Abgaben ansehen:** Bei der Lehrkraft zählt der Knopf **Schüler-Zeitstrahlen** die Abgaben mit, neue Abgaben werden kurz angezeigt. Die Übersicht zeigt je Gruppe den Stand („in Arbeit“ oder „abgegeben“) und den Code, falls eine Gruppe ihn vergessen hat. Alle Zeitstrahlen stehen außerdem oben in der Auswahlliste unter „Schüler: Reformation“. Ist ein Schüler-Zeitstrahl ausgewählt, zeigt die rechte Spalte das Thema, den Arbeitsauftrag und alle Gruppen dazu, per Klick wechselt man zur nächsten Gruppe.
+10. **Eigenen Zeitstrahl zeigen:** Unter **iPads verbinden** bei **Zeitstrahl für die Schüler sichtbar** einen eigenen Zeitstrahl wählen, z. B. eine Musterlösung. Auf den iPads erscheint nach spätestens 20 Sekunden die Karte **Zeitstrahl eurer Lehrkraft**. Die Gruppen können ihn ansehen, Ereignisse antippen, ihn drucken oder als PDF und als Bild speichern. Ihr eigener Zeitstrahl bleibt dabei unverändert. Änderungen der Lehrkraft erscheinen von selbst, mit **keiner** verschwindet die Karte wieder.
 10. **Präsentieren:** Einen Schüler-Zeitstrahl auswählen und **Tafelbild** klicken. Mit **Nächster Zeitstrahl** (oder „Bild ab“ am Presenter) geht es zur nächsten Gruppe desselben Themas. **Schrittweise aufdecken** funktioniert für jeden Zeitstrahl. **Was kam zuerst?** mischt die Ereignisse des gezeigten Zeitstrahls; die Klasse bringt sie an der Tafel in die richtige Reihenfolge, **Prüfen** zeigt, was schon stimmt.
 
     ![Tafelbild am Beamer in den Tafel-Farben, unten die Knöpfe zum schrittweisen Aufdecken und für die Übung „Was kam zuerst?“](docs/bilder/tafelbild.png)
@@ -150,7 +151,7 @@ Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft
 
 - **Keine Cloud, keine Konten:** Der Server läuft nur auf dem Laptop und nur, solange das Fenster offen ist.
 - **Daten im Ordner `daten/`:**
-  - `aufgabe.json`: das aktuelle Thema, der Arbeitsauftrag, die vorgegebenen Kategorien und ob die Abgabe beendet ist
+  - `aufgabe.json`: das aktuelle Thema, der Arbeitsauftrag, die vorgegebenen Kategorien, ob die Abgabe beendet ist und welcher Zeitstrahl der Lehrkraft für die iPads sichtbar ist
   - `abgaben/`: die Zeitstrahlen der Schülerinnen und Schüler, je Gruppe eine Datei wie `reformation-lena-und-tom-K7M2X.json` (Thema, Vornamen, Code, Rückmeldung der Lehrkraft)
   - `archiv/`: gelöschte Abgaben
   - `zeitstrahlen/`: die Zeitstrahlen der Lehrkraft, je Zeitstrahl eine Datei, gelöschte in `zeitstrahlen/geloescht/`
@@ -180,6 +181,7 @@ js/stand.js          Beim Start den gespeicherten Stand wählen (mit Server nur 
 js/gemeinsam.js      Gemeinsame Hilfen für Lehrkraft-Ansicht, Schülerseite und Server (Dateinamen, Bildprüfung, Farben, Bild sichern, Drucken)
 js/app.js            Lehrkraft-Ansicht
 js/beitrag.js        Schülerseite
+js/freigabe.js       Schülerseite: Zeitstrahl der Lehrkraft ansehen, drucken, als Bild speichern
 js/beispiele.js      Beispiel-Zeitstrahlen
 js/vendor/qrcode.js  QR-Code-Erzeugung (Kazuhiko Arase, MIT-Lizenz)
 docs/bilder/         Bilder für diese Beschreibung
@@ -192,7 +194,7 @@ Mögliche Anknüpfungspunkte im Unterricht:
 - **Parser und reguläre Ausdrücke:** Wie erkennt `parseDate()` „9. November 1918“? Welche Eingaben scheitern?
 - **Zeitrechnung ohne Jahr 0:** Intern zählt der Parser „astronomisch“ (1 v. Chr. = 0). Warum ist das praktisch?
 - **Greedy-Algorithmus:** `layout()` verteilt Beschriftungen auf Spuren, damit sich nichts überlappt.
-- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“. `tests/layout.test.js` prüft mit zufälligen Ereignissen, dass sich nie zwei Fähnchen überdecken. `tests/server.test.js` startet den Server in einem leeren Ordner und spielt Abläufe aus dem Unterricht durch: speichern und mit Code weiterarbeiten, Abgabe beenden, Rückmeldung, Anmelden am Lehrer-PC, gleichzeitiges Speichern. `npm test` startet alle Tests, und GitHub lässt sie bei jedem Pull Request automatisch laufen.
+- **Testen:** Neue Testfälle in `tests/parser.test.js` schreiben, z. B. für weitere Datumsformen wie „Anfang der 1920er“. `tests/layout.test.js` prüft mit zufälligen Ereignissen, dass sich nie zwei Fähnchen überdecken. `tests/server.test.js` startet den Server in einem leeren Ordner und spielt Abläufe aus dem Unterricht durch: speichern und mit Code weiterarbeiten, Abgabe beenden, Rückmeldung, Zeitstrahl der Lehrkraft freigeben, Anmelden am Lehrer-PC, gleichzeitiges Speichern. `npm test` startet alle Tests, und GitHub lässt sie bei jedem Pull Request automatisch laufen.
 
 ## Beispiele
 

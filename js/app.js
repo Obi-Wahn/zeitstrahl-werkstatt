@@ -770,6 +770,27 @@
     }
   }
 
+  // Ein eigener Zeitstrahl der Lehrkraft, den die iPads nur ansehen (daten/aufgabe.json, Feld „freigabe“)
+  function renderFreigabe() {
+    const sel = $('task-freigabe');
+    const id = server.task.freigabe || '';
+    sel.innerHTML = '<option value="">keiner</option>' + state.timelines
+      .map((t) => `<option value="${Layout.esc(t.id)}">${Layout.esc(displayName(t))}</option>`).join('');
+    sel.value = state.timelines.some((t) => t.id === id) ? id : '';
+  }
+
+  async function saveFreigabe() {
+    const id = $('task-freigabe').value;
+    try {
+      server.task = await api('api/aufgabe', { method: 'PUT', body: JSON.stringify({ freigabe: id }) });
+      const t = state.timelines.find((x) => x.id === id);
+      toast(t ? `Die iPads können jetzt „${displayName(t)}“ ansehen.` : 'Die iPads zeigen keinen Zeitstrahl von dir mehr.');
+    } catch (e) {
+      toast(e.message);
+      renderFreigabe();
+    }
+  }
+
   async function openConnect() {
     await detectServer(); // Adressen neu abfragen, falls das WLAN gewechselt hat
     await loadTask();
@@ -779,6 +800,7 @@
     $('task-auftrag').value = server.task.auftrag || '';
     $('task-kategorien').value = (server.task.kategorien || []).join(', ');
     renderTaskState();
+    renderFreigabe();
     $('connect-grid').hidden = !ips.length;
     $('connect-none').hidden = ips.length > 0;
     if (ips.length) {
@@ -1960,6 +1982,7 @@
     $('connect-close').addEventListener('click', () => $('connect').close());
     $('task-form').addEventListener('submit', saveTask);
     $('task-kat-uebernehmen').addEventListener('click', takeOwnKategorien);
+    $('task-freigabe').addEventListener('change', saveFreigabe);
     $('btn-sperre').addEventListener('click', toggleSperre);
     $('zugang-close').addEventListener('click', () => $('zugang').close());
     $('btn-logout').addEventListener('click', logout);

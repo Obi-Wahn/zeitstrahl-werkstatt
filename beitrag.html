@@ -45,6 +45,13 @@
     <p class="feedback-text" id="feedback-text"></p>
   </section>
 
+  <section class="card freigabe-card" id="freigabe-card" aria-labelledby="freigabe-card-title" hidden>
+    <div>
+      <h2 id="freigabe-card-title">Zeitstrahl eurer Lehrkraft</h2>
+      <p class="freigabe-name" id="freigabe-name"></p>
+    </div>
+    <button type="button" class="btn primary" id="freigabe-open">Ansehen</button>
+  </section>
   <section class="card" aria-labelledby="group-title">
     <h2 id="group-title" class="vh">Angaben zum Zeitstrahl</h2>
     <div class="row3">
@@ -194,6 +201,29 @@
 
 </div>
 
+<dialog id="freigabe" class="review freigabe" aria-labelledby="freigabe-title">
+  <div class="review-head">
+    <p class="eyebrow">Zeitstrahl eurer Lehrkraft</p>
+    <h2 id="freigabe-title"></h2>
+    <p>Nur zum Ansehen. Euer eigener Zeitstrahl bleibt, wie er ist. Tippt auf ein Ereignis für mehr.</p>
+  </div>
+  <div class="freigabe-body">
+    <div class="preview" id="freigabe-preview"></div>
+    <div class="freigabe-detail" id="freigabe-detail" hidden>
+      <p class="detail-cat"><span class="swatch" id="fd-swatch"></span><span id="fd-cat"></span></p>
+      <h3 id="fd-title"></h3>
+      <p class="detail-when" id="fd-when"></p>
+      <img id="fd-img" class="detail-img" alt="" hidden>
+      <p class="detail-desc" id="fd-desc"></p>
+      <p class="detail-meta" id="fd-meta" hidden></p>
+    </div>
+  </div>
+  <div class="review-foot">
+    <button type="button" class="btn" id="freigabe-print">Drucken oder als PDF speichern</button>
+    <button type="button" class="btn" id="freigabe-png">Als Bild speichern</button>
+    <button type="button" class="btn primary" id="freigabe-close">Schließen</button>
+  </div>
+</dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="print-area" class="print-area" aria-hidden="true"></div>
 
@@ -203,5 +233,6 @@
 <script src="js/bild.js"></script>
 <script src="js/beispiele.js"></script>
 <script src="js/beitrag.js"></script>
+<script src="js/freigabe.js"></script>
 </body>
 </html>

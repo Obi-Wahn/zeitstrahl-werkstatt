@@ -441,5 +441,65 @@ const dateienIn = (ordner) => (fs.existsSync(ordner) ? fs.readdirSync(ordner) : 
     await s.stop();
   }
 
+  // Szenario: Lehrkraft macht einen ihrer Zeitstrahlen für die iPads sichtbar
+  {
+    const dir = workdir();
+    const s = await start(dir);
+    const c = client(s.port);
+    const bild = 'data:image/png;base64,iVBORw0KGgo=';
+    let hash;
+
+    await test('Ohne Freigabe sehen die iPads keinen Zeitstrahl der Lehrkraft', async () => {
+      await c.laptop('PUT', '/api/sicherung', { timelines: [
+        { id: 'a', name: 'Reformation', source: '1517; Thesen; Religion; ; bild=b1', images: { b1: bild } },
+        { id: 'b', name: 'Geheime Lösung', source: '1918; Republik' },
+      ] });
+      await c.laptop('PUT', '/api/aufgabe', { thema: 'Reformation', auftrag: '', kategorien: ['Politik'] });
+      assert.deepEqual((await c.schueler('GET', '/api/freigabe')).json, { leer: true });
+    });
+
+    await test('Freigegeben: iPads bekommen genau diesen Zeitstrahl samt Bildern', async () => {
+      const r = await c.laptop('PUT', '/api/aufgabe', { freigabe: 'a' });
+      assert.equal(r.json.freigabe, 'a');
+      assert.equal(r.json.thema, 'Reformation'); // Thema und Kategorien bleiben
+      assert.deepEqual(r.json.kategorien, ['Politik']);
+      const f = (await c.schueler('GET', '/api/freigabe')).json;
+      assert.equal(f.name, 'Reformation');
+      assert.match(f.source, /Thesen/);
+      assert.deepEqual(f.images, { b1: bild });
+      hash = f.hash;
+    });
+
+    await test('Unverändert: kurze Antwort ohne Inhalt, nach einer Änderung wieder alles', async () => {
+      assert.deepEqual((await c.schueler('GET', `/api/freigabe?hash=${hash}`)).json, { unveraendert: true, hash });
+      const stand = (await c.laptop('GET', '/api/sicherung')).json.stand;
+      await c.laptop('PUT', '/api/sicherung', { stand, timelines: [
+        { id: 'a', name: 'Reformation', source: '1517; Thesen\n1521; Worms' },
+        { id: 'b', name: 'Geheime Lösung', source: '1918; Republik' },
+      ] });
+      const f = (await c.schueler('GET', `/api/freigabe?hash=${hash}`)).json;
+      assert.notEqual(f.hash, hash);
+      assert.match(f.source, /Worms/);
+    });
+
+    await test('Thema neu festlegen behält die Freigabe, iPads dürfen sie nicht ändern', async () => {
+      const r = await c.laptop('PUT', '/api/aufgabe', { thema: 'Reformation', auftrag: 'Sechs Ereignisse', kategorien: [], gesperrt: false });
+      assert.equal(r.json.freigabe, 'a');
+      assert.equal((await c.schueler('PUT', '/api/aufgabe', { freigabe: 'b' })).status, 403);
+      assert.equal((await c.schueler('GET', '/api/freigabe')).json.name, 'Reformation');
+    });
+
+    await test('Freigabe zurückgenommen oder Zeitstrahl gelöscht: nichts mehr zu sehen', async () => {
+      await c.laptop('PUT', '/api/aufgabe', { freigabe: '' });
+      assert.deepEqual((await c.schueler('GET', '/api/freigabe')).json, { leer: true });
+      await c.laptop('PUT', '/api/aufgabe', { freigabe: 'a' });
+      const stand = (await c.laptop('GET', '/api/sicherung')).json.stand;
+      await c.laptop('PUT', '/api/sicherung', { stand, timelines: [{ id: 'b', name: 'Geheime Lösung', source: '1918; Republik' }] });
+      assert.deepEqual((await c.schueler('GET', '/api/freigabe')).json, { leer: true });
+    });
+
+    await s.stop();
+  }
+
   console.log(`\n${passed} Tests bestanden.`);
 })();
