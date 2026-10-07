@@ -200,4 +200,17 @@ test('„heute“ erscheint nur, wenn es im Ausschnitt liegt', () => {
   assert.ok(!L.svgBody(g, PAINT, { todayPos: 2050 }).includes('>heute<'));
 });
 
+test('Seite A4 quer: Titel, Verfasser, Zeitraum und Lückenbild', () => {
+  const src = '1517; Thesenanschlag; Religion\n1521; Reichstag zu Worms; Politik';
+  const { items: list, cats } = P.parseSource(src, NOW);
+  const o = { title: 'Luthers <Weg>', von: 'Lena und Tom', measure, day: '7.10.2026' };
+  const page = L.pageSvg(list, { v0: 1510, v1: 1530 }, cats, o);
+  assert.equal(page.w, 2800);
+  assert.ok(page.markup.includes('Luthers &lt;Weg&gt;'));
+  assert.ok(page.markup.includes('Erstellt von Lena und Tom · 2 Einträge · 1517 bis 1521'));
+  assert.ok(page.markup.includes('>Religion<') && page.markup.includes('>Politik<'));
+  const blank = L.pageSvg(list, { v0: 1510, v1: 1530 }, cats, { ...o, blank: true }).markup;
+  assert.ok(blank.includes('Name: ') && !blank.includes('Thesenanschlag'));
+});
+
 console.log(`\n${passed} Tests bestanden.`);

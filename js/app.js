@@ -12,7 +12,7 @@
   const Zip = window.ZeitstrahlZip;
   const Stand = window.ZeitstrahlStand;
   const SAMPLES = window.ZeitstrahlBeispiele || [];
-  const { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
+  const { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon, savePng, printSvg } = window.ZeitstrahlGemeinsam;
 
   const DB_NAME = 'zeitstrahl-werkstatt';
   const DB_STORE = 'daten';
@@ -25,24 +25,18 @@
   const ORDER_FILE = '_reihenfolge.json';
 
   const FAM_SCREEN = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif';
-  const FAM_EXPORT = 'Arial, Helvetica, sans-serif';
   const PRESENT_SCALE = 1.4;
   const MIN_PRESENT_SCALE = 0.85; // so weit darf das Tafelbild schrumpfen, damit alles aufs Bild passt
   const MIN_SPAN = 0.25;
   const MAX_SPAN = 40000;
   const LIMIT_LO = -30000;
   const LIMIT_HI = 6000;
-  const CAT_LIGHT = ['#B23A30', '#6A47A6', '#9A6608', '#2760A8', '#86552A', '#A3356E', '#157A80', '#6B7671'];
   const NOW = new Date();
   const TODAY_POS = Parser.toPos({ y: NOW.getFullYear(), m: NOW.getMonth() + 1, d: NOW.getDate(), bc: false });
 
   const SCREEN_PAINT = {
     ink: 'var(--ink)', soft: 'var(--ink-soft)', grid: 'var(--grid)', sheet: 'var(--sheet)', accent: 'var(--board)',
     cat: (i) => `var(--cat-${i})`,
-  };
-  const EXPORT_PAINT = {
-    ink: '#1C2420', soft: '#56635D', grid: '#E3E8E5', sheet: '#FFFFFF', accent: '#2C5A4B',
-    cat: (i) => CAT_LIGHT[i - 1],
   };
 
   const $ = (id) => document.getElementById(id);
@@ -1490,117 +1484,20 @@
     toast(state.timelines.length === 1 ? 'Der Zeitstrahl wurde als ZIP-Datei gesichert.' : `Alle ${state.timelines.length} Zeitstrahlen als ZIP-Datei gesichert.`);
   }
 
-  // Seite im Format A4 quer (273 × 186 mm Innenfläche) für Bild und Druck: Kopf mit Titel
-  // und Rahmen, Fußzeile mit Kategorien. Der Zeitstrahl wird so groß wie möglich gesetzt.
-  // Das Bild entsteht in doppelter Auflösung, damit es auch gedruckt scharf bleibt.
-  function pageSvg(blank) {
-    const items = visibleItems();
-    const W = 1400;
-    const H = Math.round(W * 186 / 273);
-    const pad = 36;
-    const P = EXPORT_PAINT;
-    const esc = Layout.esc;
-    const inner = W - pad * 2 - 40; // Zeitstrahl mit etwas Abstand zum Rahmen
-    const top = 132;
-    const bottom = H - 92;
-    const room = bottom - top - 40;
-
-    // Größten Maßstab suchen, bei dem alles auf die Seite passt
-    const draw = (sc) => Layout.layout(items, view, inner, { scale: sc, family: FAM_EXPORT, measure });
-    let lo = 0.8;
-    let hi = 1.7;
-    let g = draw(lo);
-    if (g.H <= room) {
-      for (let i = 0; i < 8; i++) {
-        const mid = (lo + hi) / 2;
-        const t = draw(mid);
-        if (t.H <= room) { lo = mid; g = t; } else hi = mid;
-      }
-    }
-    const gy = top + 20 + Math.max(0, (room - g.H) / 2);
-
-    // Zeitraum und Anzahl für die Unterzeile
-    const yr = (x) => (x < 1 ? `${Math.round(1 - x)} v. Chr.` : String(Math.floor(x)));
-    const first = Math.min(...items.map((i) => i.start));
-    const last = Math.max(...items.map((i) => i.end));
-    const n = items.length;
-    const sub = `${n} ${n === 1 ? 'Eintrag' : 'Einträge'} · ${first === last ? yr(first) : `${yr(first)} bis ${yr(last)}`}`;
-
-    const legend = [];
-    let lx = pad;
-    for (const c of parsed.cats) {
-      if (hiddenCats.has(c.key)) continue;
-      const tw = measure(c.name, 400, 15, FAM_EXPORT);
-      if (lx + 22 + tw > W - pad - 260) break; // rechts steht die Fußzeile
-      legend.push(`<rect x="${lx}" y="${H - 50}" width="13" height="13" rx="3" style="fill:${P.cat(c.ci)}"/>`
-        + `<text x="${lx + 20}" y="${H - 39}" style="font-size:15px;fill:${P.soft}">${esc(c.name)}</text>`);
-      lx += 20 + tw + 24;
-    }
-    const day = new Date().toLocaleDateString('de-DE');
-    const right = blank
-      ? `<text x="${W - pad}" y="58" text-anchor="end" style="font-size:16px;fill:${P.soft}">Name: ____________________</text>`
-        + `<text x="${W - pad}" y="92" text-anchor="end" style="font-size:16px;fill:${P.soft}">Datum: _____________</text>`
-      : '';
-    const markup = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="${H * 2}" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
-      + `<rect width="${W}" height="${H}" style="fill:#FFFFFF"/>`
-      + `<text x="${pad}" y="62" style="font-size:34px;font-weight:700;fill:${P.ink}">${esc(displayName(activeTl()))}</text>`
-      + `<text x="${pad}" y="94" style="font-size:16px;fill:${P.soft}">${esc(blank ? 'Ergänze die fehlenden Ereignisse.' : sub)}</text>`
-      + right
-      + `<line x1="${pad}" y1="${top - 14}" x2="${W - pad}" y2="${top - 14}" style="stroke:${P.accent};stroke-width:3"/>`
-      + `<rect x="${pad}" y="${top}" width="${W - pad * 2}" height="${bottom - top}" rx="10" style="fill:none;stroke:${P.grid};stroke-width:1.5"/>`
-      + `<g transform="translate(${pad + 20} ${gy.toFixed(1)})">${Layout.svgBody(g, P, { selectedId: null, interactive: false, blank })}</g>`
-      + legend.join('')
-      + `<text x="${W - pad}" y="${H - 39}" text-anchor="end" style="font-size:13px;fill:${P.soft}">Zeitstrahl-Werkstatt · ${esc(day)}</text>`
-      + '</svg>';
-    return { markup, w: W * 2, h: H * 2 };
-  }
+  // Seite im Format A4 quer für Bild und Druck (gebaut in js/layout.js)
+  const pageSvg = (blank) => Layout.pageSvg(visibleItems(), view, parsed.cats, {
+    title: displayName(activeTl()), blank, hidden: hiddenCats, measure, day: new Date().toLocaleDateString('de-DE'),
+  });
 
   function exportPng(blank) {
     if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
     const { markup, w, h } = pageSvg(blank);
-    const name = slug(activeTl().name) + (blank ? '-lueckenbild' : '');
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      try {
-        c.toBlob((blob) => {
-          if (blob) {
-            download(name + '.png', blob);
-            toast(blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
-          } else {
-            download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
-          }
-        }, 'image/png');
-      } catch (e) {
-        // Manche Browser sperren das Umwandeln: dann als SVG sichern (lässt sich ebenso drucken)
-        download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
-        toast('Als SVG-Bild gesichert.');
-      }
-    };
-    img.onerror = () => toast('Das Bild konnte nicht erzeugt werden.');
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+    savePng(markup, w, h, slug(activeTl().name) + (blank ? '-lueckenbild' : ''), blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
   }
 
-  // Direkt drucken: dieselbe Seite wie beim Sichern als Bild, nur gleich auf dem Papier.
-  // Querformat und Seitenrand kommen aus dem Druck-Stil in css/style.css.
   function printTimeline(blank) {
     if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
-    const { markup } = pageSvg(blank);
-    const area = $('print-area');
-    area.innerHTML = markup;
-    document.body.classList.add('printing');
-    const done = () => {
-      document.body.classList.remove('printing');
-      area.textContent = '';
-      window.removeEventListener('afterprint', done);
-    };
-    window.addEventListener('afterprint', done);
-    window.print();
-    setTimeout(done, 1000); // Browser ohne afterprint (ältere Safari-Versionen)
+    printSvg(pageSvg(blank).markup);
   }
 
   /* ---------- Öffnen: Textdateien, Tabellen, Sicherungen, Schülerbeiträge ---------- */

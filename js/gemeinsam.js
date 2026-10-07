@@ -1,7 +1,7 @@
 /*
  * Zeitstrahl-Werkstatt · Gemeinsame Hilfen
  * Für die Lehrkraft-Ansicht, die Schülerseite und den Server (Dateinamen, Bildprüfung).
- * Was das Dokument braucht (Hinweise, Farben, Herunterladen), wird erst beim Aufruf benutzt.
+ * Was das Dokument braucht (Hinweise, Farben, Herunterladen, Drucken), wird erst beim Aufruf benutzt.
  */
 (function (root, factory) {
   const api = factory();
@@ -63,6 +63,45 @@
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
+  // Fertige Seite (SVG) als PNG herunterladen. Sperrt der Browser das Umwandeln,
+  // gibt es die Seite als SVG-Bild, das sich ebenso drucken lässt.
+  function savePng(markup, w, h, name, okMsg) {
+    const asSvg = () => download(name + '.svg', new Blob([markup], { type: 'image/svg+xml' }));
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      try {
+        c.toBlob((blob) => {
+          if (blob) { download(name + '.png', blob); toast(okMsg); } else asSvg();
+        }, 'image/png');
+      } catch (e) {
+        asSvg();
+        toast('Als SVG-Bild gesichert.');
+      }
+    };
+    img.onerror = () => toast('Das Bild konnte nicht erzeugt werden.');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+  }
+
+  // Fertige Seite (SVG) drucken oder im Druckfenster als PDF sichern. Sie kommt kurz in das
+  // Element mit id „print-area“; Querformat und Seitenrand stehen im Druck-Stil in css/style.css.
+  function printSvg(markup) {
+    const area = document.getElementById('print-area');
+    area.innerHTML = markup;
+    document.body.classList.add('printing');
+    const done = () => {
+      document.body.classList.remove('printing');
+      area.textContent = '';
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(done, 1000); // Browser ohne afterprint (ältere Safari-Versionen)
+  }
+
   // Textbreite in Pixeln, mit Zwischenspeicher, weil das Layout viel misst
   const mcache = new Map();
   let mctx = null;
@@ -100,5 +139,5 @@
     b.title = THEMES[theme] + ' (zum Umschalten klicken)';
   }
 
-  return { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon };
+  return { slug, str, cleanKategorien, MAX_KATEGORIEN, validImage, toast, download, savePng, printSvg, measure, clearMeasure, THEMES, setTheme, shownTheme, labelThemeIcon };
 });
