@@ -27,9 +27,9 @@ Der Laptop der Lehrkraft ist dabei der Server. Es gibt keine Cloud und keine Kon
    `npm start` funktioniert genauso.
 
    Es öffnet sich ein Fenster mit den Adressen, und der Browser zeigt die Lehrkraft-Ansicht unter `http://localhost:8080`. **Das Fenster während der Stunde offen lassen.**
-2. **Thema vorgeben:** Auf **iPads verbinden** klicken, das Thema eintragen (z. B. „Reformation“), auf Wunsch einen kurzen Arbeitsauftrag, und **Thema festlegen** klicken. Darunter erscheint ein großer QR-Code für den Beamer.
+2. **Thema vorgeben:** Auf **iPads verbinden** klicken, das Thema eintragen (z. B. „Reformation“), auf Wunsch einen kurzen Arbeitsauftrag und bis zu acht Kategorien (z. B. „Personen, Religion, Politik“), dann **Thema festlegen** klicken. Kategorien lassen sich später ergänzen, die iPads übernehmen sie nach spätestens 20 Sekunden. Darunter erscheint ein großer QR-Code für den Beamer.
 3. **iPads verbinden:** Die Schülerinnen und Schüler scannen den QR-Code mit der Kamera-App und landen auf der Schülerseite. Dort stehen schon das Thema und der Arbeitsauftrag.
-4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
+4. **Zeitstrahl bauen:** Jede Gruppe trägt ihre Vornamen und auf Wunsch einen Titel ein und legt dann Ereignisse an: Datum, Ereignis, Kategorie, Beschreibung und ein Foto (direkt fotografiert oder aus der Mediathek, die Bildquelle ist dann Pflicht). Hat die Lehrkraft Kategorien vorgegeben, tippt die Gruppe eine davon an, statt selbst eine einzutragen. Das Formular zeigt sofort, wie das Datum verstanden wurde („Erkannt: 24. Oktober 1648 · vor 378 Jahren“). Der eigene Zeitstrahl wächst oben live mit; Antippen eines Ereignisses öffnet es zum Bearbeiten.
 
    <img src="docs/bilder/ipads-verbinden.png" width="58%" alt="Dialog „Thema vorgeben und iPads verbinden“ mit Thema, Arbeitsauftrag und großem QR-Code"> <img src="docs/bilder/schuelerseite.png" width="38%" alt="Schülerseite auf dem iPad: Thema, Arbeitsauftrag, Vornamen der Gruppe und der eigene Zeitstrahl">
 
@@ -142,7 +142,7 @@ Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung.
 | `1949–heute` | bis zum heutigen Tag |
 | `# Notiz` | Kommentar, erscheint nicht im Zeitstrahl |
 
-Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine freie Farbe.
+Feste Farben haben die Kategorien Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine freie Farbe. Vorgegebene Kategorien haben in allen Gruppen-Zeitstrahlen und im Tafelbild dieselbe Farbe. Neue Kategorien hängt man am besten hinten an, dann behalten die bisherigen ihre Farben.
 
 Übernommene Schülerbeiträge tragen Zusatzangaben in geschweiften Klammern: `{von:Lena}` `{quelle:Wikimedia Commons}` `{bild:b1k9x}`.
 
