@@ -12,7 +12,7 @@
   const Parser = window.ZeitstrahlParser;
   const Layout = window.ZeitstrahlLayout;
   const Bild = window.ZeitstrahlBild;
-  const { slug, str, validImage, toast, download, measure, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
+  const { slug, str, validImage, toast, download, savePng, printSvg, measure, setTheme, shownTheme, labelThemeIcon } = window.ZeitstrahlGemeinsam;
 
   const DRAFT_KEY = 'zeitstrahl-schueler-v2';
   const THEME_KEY = 'zeitstrahl-werkstatt-farben';
@@ -354,6 +354,7 @@
     const n = work.entries.length;
     $('preview-empty').hidden = n > 0;
     $('preview-note').hidden = n === 0;
+    $('preview-actions').hidden = n === 0;
     if (!n) { box.hidden = true; box.textContent = ''; return; }
     box.hidden = false;
     const src = work.entries.map((e) => Parser.buildLine({ ...e, bild: e.bild ? 'vorschau' : '' })).join('\n');
@@ -369,6 +370,32 @@
     const H = Math.ceil(g.H);
     box.innerHTML = `<svg class="tl-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Vorschau eures Zeitstrahls">`
       + Layout.svgBody(g, PAINT, { selectedId: editIndex >= 0 ? 'L' + editIndex : null, interactive: true, todayPos: null }) + '</svg>';
+  }
+
+  // Der eigene Zeitstrahl als Seite A4 quer, genauso wie bei der Lehrkraft
+  function pageSvg() {
+    const src = work.entries.map((e) => Parser.buildLine({ ...e, bild: e.bild ? 'vorschau' : '' })).join('\n');
+    const { items, cats } = Parser.parseSource(src, NOW, presetKats());
+    if (!items.length) { toast('Euer Zeitstrahl hat noch keine Einträge.'); return null; }
+    let lo = Math.min(...items.map((i) => i.start));
+    let hi = Math.max(...items.map((i) => i.end));
+    if (hi - lo < 2) { lo -= 5; hi += 5; }
+    const pad = (hi - lo) * 0.05;
+    return Layout.pageSvg(items, { v0: lo - pad, v1: hi + pad }, cats, {
+      title: work.titel || work.thema || 'Mein Zeitstrahl', von: work.von.trim(), measure, day: new Date().toLocaleDateString('de-DE'),
+    });
+  }
+
+  function savePicture() {
+    const page = pageSvg();
+    if (!page) return;
+    const name = ['zeitstrahl', ...[work.titel || work.thema, work.von].filter(Boolean).map(slug)].join('-');
+    savePng(page.markup, page.w, page.h, name, 'Bild gespeichert.');
+  }
+
+  function printPage() {
+    const page = pageSvg();
+    if (page) printSvg(page.markup);
   }
 
   /* ---------- Verbindung zum Laptop ---------- */
@@ -775,6 +802,8 @@
   $('btn-save-new').addEventListener('click', saveAsNew);
   $('btn-submit').addEventListener('click', () => saveToServer('abgegeben'));
   $('btn-file').addEventListener('click', saveFile);
+  $('btn-png').addEventListener('click', savePicture);
+  $('btn-print').addEventListener('click', printPage);
   $('btn-open').addEventListener('click', chooseFile);
   $('open-input').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];

@@ -69,6 +69,10 @@
     <p class="empty-list" id="preview-empty">Noch leer. Tragt unten das erste Ereignis ein.</p>
     <div class="preview" id="preview" hidden></div>
     <p class="note" id="preview-note" hidden>Tippt auf ein Ereignis, um es zu bearbeiten.</p>
+    <div class="form-actions" id="preview-actions" hidden>
+      <button type="button" class="btn" id="btn-png">Als Bild speichern</button>
+      <button type="button" class="btn" id="btn-print">Drucken oder als PDF speichern</button>
+    </div>
   </section>
 
   <div class="student-grid">
@@ -191,6 +195,7 @@
 </div>
 
 <div id="toast" class="toast" role="status" hidden></div>
+<div id="print-area" class="print-area" aria-hidden="true"></div>
 
 <script src="js/gemeinsam.js"></script>
 <script src="js/parser.js"></script>

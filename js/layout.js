@@ -7,6 +7,7 @@
  *           oder links, je nachdem, wo Platz ist. Überlappende Beschriftungen
  *           werden auf "Spuren" verteilt. Die Zeiträume stehen abgetrennt darunter.
  * svgBody() macht daraus SVG-Markup – für den Bildschirm und für den Bild-Export.
+ * pageSvg() setzt den Zeitstrahl auf eine Seite A4 quer (Bild sichern und Drucken).
  *
  * Die Textbreiten misst eine von außen übergebene Funktion measure(),
  * damit dieses Modul auch ohne Browser testbar bleibt.
@@ -362,5 +363,81 @@
     return out.join('');
   }
 
-  return { metricsFor, pointLabelW, spanLabelParts, makeTicks, layout, svgBody, esc };
+  /* ---------- Seite A4 quer für Bild und Druck ---------- */
+
+  // Feste Farben für Bild und Druck: Papier ist immer weiß, egal welche Farben der Bildschirm zeigt
+  const FAM_EXPORT = 'Arial, Helvetica, sans-serif';
+  const CAT_LIGHT = ['#B23A30', '#6A47A6', '#9A6608', '#2760A8', '#86552A', '#A3356E', '#157A80', '#6B7671'];
+  const EXPORT_PAINT = {
+    ink: '#1C2420', soft: '#56635D', grid: '#E3E8E5', sheet: '#FFFFFF', accent: '#2C5A4B',
+    cat: (i) => CAT_LIGHT[i - 1],
+  };
+
+  // Seite im Format A4 quer (273 × 186 mm Innenfläche): Kopf mit Titel
+  // und Rahmen, Fußzeile mit Kategorien. Der Zeitstrahl wird so groß wie möglich gesetzt.
+  // Das Bild entsteht in doppelter Auflösung, damit es auch gedruckt scharf bleibt.
+  // o: title, blank (Lückenbild), hidden (ausgeblendete Kategorien), von (wer ihn erstellt hat), measure, day
+  function pageSvg(items, view, cats, o) {
+    const W = 1400;
+    const H = Math.round(W * 186 / 273);
+    const pad = 36;
+    const P = EXPORT_PAINT;
+    const measure = o.measure;
+    const hidden = o.hidden || new Set();
+    const inner = W - pad * 2 - 40; // Zeitstrahl mit etwas Abstand zum Rahmen
+    const top = 132;
+    const bottom = H - 92;
+    const room = bottom - top - 40;
+
+    // Größten Maßstab suchen, bei dem alles auf die Seite passt
+    const draw = (sc) => layout(items, view, inner, { scale: sc, family: FAM_EXPORT, measure });
+    let lo = 0.8;
+    let hi = 1.7;
+    let g = draw(lo);
+    if (g.H <= room) {
+      for (let i = 0; i < 8; i++) {
+        const mid = (lo + hi) / 2;
+        const t = draw(mid);
+        if (t.H <= room) { lo = mid; g = t; } else hi = mid;
+      }
+    }
+    const gy = top + 20 + Math.max(0, (room - g.H) / 2);
+
+    // Zeitraum und Anzahl für die Unterzeile
+    const yr = (x) => (x < 1 ? `${Math.round(1 - x)} v. Chr.` : String(Math.floor(x)));
+    const first = Math.min(...items.map((i) => i.start));
+    const last = Math.max(...items.map((i) => i.end));
+    const n = items.length;
+    const sub = (o.von ? `Erstellt von ${o.von} · ` : '')
+      + `${n} ${n === 1 ? 'Eintrag' : 'Einträge'} · ${first === last ? yr(first) : `${yr(first)} bis ${yr(last)}`}`;
+
+    const legend = [];
+    let lx = pad;
+    for (const c of cats) {
+      if (hidden.has(c.key)) continue;
+      const tw = measure(c.name, 400, 15, FAM_EXPORT);
+      if (lx + 22 + tw > W - pad - 260) break; // rechts steht die Fußzeile
+      legend.push(`<rect x="${lx}" y="${H - 50}" width="13" height="13" rx="3" style="fill:${P.cat(c.ci)}"/>`
+        + `<text x="${lx + 20}" y="${H - 39}" style="font-size:15px;fill:${P.soft}">${esc(c.name)}</text>`);
+      lx += 20 + tw + 24;
+    }
+    const right = o.blank
+      ? `<text x="${W - pad}" y="58" text-anchor="end" style="font-size:16px;fill:${P.soft}">Name: ____________________</text>`
+        + `<text x="${W - pad}" y="92" text-anchor="end" style="font-size:16px;fill:${P.soft}">Datum: _____________</text>`
+      : '';
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="${H * 2}" viewBox="0 0 ${W} ${H}" style="font-family:${FAM_EXPORT}">`
+      + `<rect width="${W}" height="${H}" style="fill:#FFFFFF"/>`
+      + `<text x="${pad}" y="62" style="font-size:34px;font-weight:700;fill:${P.ink}">${esc(o.title)}</text>`
+      + `<text x="${pad}" y="94" style="font-size:16px;fill:${P.soft}">${esc(o.blank ? 'Ergänze die fehlenden Ereignisse.' : sub)}</text>`
+      + right
+      + `<line x1="${pad}" y1="${top - 14}" x2="${W - pad}" y2="${top - 14}" style="stroke:${P.accent};stroke-width:3"/>`
+      + `<rect x="${pad}" y="${top}" width="${W - pad * 2}" height="${bottom - top}" rx="10" style="fill:none;stroke:${P.grid};stroke-width:1.5"/>`
+      + `<g transform="translate(${pad + 20} ${gy.toFixed(1)})">${svgBody(g, P, { selectedId: null, interactive: false, blank: o.blank })}</g>`
+      + legend.join('')
+      + `<text x="${W - pad}" y="${H - 39}" text-anchor="end" style="font-size:13px;fill:${P.soft}">Zeitstrahl-Werkstatt · ${esc(o.day || '')}</text>`
+      + '</svg>';
+    return { markup, w: W * 2, h: H * 2 };
+  }
+
+  return { metricsFor, pointLabelW, spanLabelParts, makeTicks, layout, svgBody, pageSvg, esc };
 });
