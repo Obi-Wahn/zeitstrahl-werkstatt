@@ -29,7 +29,7 @@
       <span id="save-status" class="status" role="status" aria-live="polite"></span>
       <button type="button" class="linkbtn backup-due" id="backup-due" hidden>Jetzt sichern</button>
       <div class="klasse" id="klasse" role="group" aria-label="Klasse" hidden>
-        <button type="button" class="btn connect-btn">iPads verbinden</button>
+        <button type="button" class="btn connect-btn">Unterricht</button>
         <button type="button" class="btn" id="btn-abgaben">Schüler-Zeitstrahlen <span class="count" id="abgaben-count" hidden></span></button>
       </div>
       <a class="btn ghost" href="beitrag.html" target="_blank" rel="noopener" id="link-student">Schülerseite</a>
@@ -38,22 +38,23 @@
         <button type="button" id="btn-file" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="file-menu">Datei</button>
         <div id="file-menu" class="menu-list" role="menu" hidden>
           <button type="button" role="menuitem" data-act="import">Öffnen … (.txt, .json, .csv, .zip)</button>
+          <button type="button" role="menuitem" data-act="open-sample">Beispiel öffnen …</button>
           <hr>
           <button type="button" role="menuitem" data-act="export-txt">Als Textdatei sichern (.txt)</button>
           <button type="button" role="menuitem" data-act="export-json">Mit Bildern sichern (.json)</button>
-          <hr>
-          <button type="button" role="menuitem" data-act="export-png">Ausschnitt als Bild sichern (PNG)</button>
-          <button type="button" role="menuitem" data-act="export-png-blank">Lückenbild fürs Arbeitsblatt (PNG)</button>
-          <hr>
-          <button type="button" role="menuitem" data-act="print">Zeitstrahl drucken (A4 quer)</button>
-          <button type="button" role="menuitem" data-act="print-blank">Lückenbild drucken (A4 quer)</button>
-          <hr>
           <button type="button" role="menuitem" data-act="export-backup">Alle Zeitstrahlen sichern (.zip)</button>
-          <button type="button" role="menuitem" data-act="open-sample">Beispiel öffnen …</button>
-          <hr class="zugang-only" hidden>
-          <button type="button" role="menuitem" data-act="zugang" class="zugang-only" hidden>Am Lehrer-PC öffnen …</button>
         </div>
         <input type="file" id="file-input" accept=".txt,.json,.csv,.tsv,.zip,text/plain,application/json,text/csv,application/zip" multiple hidden>
+      </div>
+      <div class="menu">
+        <button type="button" id="btn-sheet" class="btn" aria-haspopup="menu" aria-expanded="false" aria-controls="sheet-menu">Arbeitsblatt</button>
+        <div id="sheet-menu" class="menu-list" role="menu" hidden>
+          <button type="button" role="menuitem" data-act="export-png">Zeitstrahl als Bild (PNG)</button>
+          <button type="button" role="menuitem" data-act="print">Zeitstrahl drucken (A4 quer)</button>
+          <hr>
+          <button type="button" role="menuitem" data-act="export-png-blank">Lückenbild als Bild (PNG)</button>
+          <button type="button" role="menuitem" data-act="print-blank">Lückenbild drucken (A4 quer)</button>
+        </div>
       </div>
       <button type="button" class="btn ghost" id="btn-logout" hidden>Abmelden</button>
       <button type="button" id="btn-present" class="btn primary">Tafelbild</button>
@@ -115,7 +116,7 @@
       </div>
       <div class="present-right">
         <button type="button" class="btn ghost" id="btn-sort">Was kam zuerst?</button>
-        <button type="button" class="btn ghost connect-btn" hidden>iPads verbinden</button>
+        <button type="button" class="btn ghost connect-btn" hidden>Unterricht</button>
         <button type="button" class="btn ghost theme-btn">Farben: automatisch</button>
         <button type="button" class="btn" id="present-exit">Tafelbild beenden</button>
       </div>
@@ -189,7 +190,7 @@
       <p>Feste Farben haben Politik, Religion, Kultur, Technik, Wirtschaft, Gesellschaft, Personen und Epoche. Eigene Kategorien bekommen automatisch eine Farbe.</p>
       <details class="help-more">
         <summary>Weitere Hilfe</summary>
-      <p>Schülerinnen und Schüler bauen über <strong>iPads verbinden</strong> eigene Zeitstrahlen zum vorgegebenen Thema. Dort lassen sich auch Kategorien vorgeben und später ergänzen, dann wählen die iPads nur noch aus ihnen. Außerdem kannst du dort einen eigenen Zeitstrahl, z. B. eine Musterlösung, für die iPads sichtbar machen. Die Schüler können ihn ansehen, drucken und als Bild speichern, ihr eigener bleibt unverändert. Abgaben erscheinen oben in der Auswahl unter „Schüler: Thema“. Ohne Server speichert die <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> eine Datei, die hier über <strong>Datei → Öffnen</strong> eingelesen wird.</p>
+      <p>Schülerinnen und Schüler bauen eigene Zeitstrahlen zum Thema, das du unter <strong>Unterricht</strong> vorgibst. Dort steht auch der QR-Code für die iPads, und dort lassen sich auch Kategorien vorgeben und später ergänzen, dann wählen die iPads nur noch aus ihnen. Außerdem kannst du dort einen eigenen Zeitstrahl, z. B. eine Musterlösung, für die iPads sichtbar machen. Die Schüler können ihn ansehen, drucken und als Bild speichern, ihr eigener bleibt unverändert. Abgaben erscheinen oben in der Auswahl unter „Schüler: Thema“. Ohne Server speichert die <a href="beitrag.html" target="_blank" rel="noopener">Schülerseite</a> eine Datei, die hier über <strong>Datei → Öffnen</strong> eingelesen wird.</p>
       <p id="help-save">Alles wird nur in diesem Browser gespeichert. Als Sicherung: <strong>Datei → Alle Zeitstrahlen sichern</strong>. Zum Weitergeben: <strong>Datei → Mit Bildern sichern</strong>.</p>
       <p>Im Tafelbild blättern Pfeiltasten, Leertaste oder ein Presenter beim schrittweisen Aufdecken weiter. Ohne Aufdecken wechseln Bild auf/Bild ab (Presenter) zum nächsten Zeitstrahl.</p>
       </details>
@@ -211,49 +212,62 @@
 </dialog>
 
 <dialog id="connect" class="connect" aria-labelledby="connect-title">
-  <h2 id="connect-title">Thema vorgeben und iPads verbinden</h2>
-  <form class="task-form" id="task-form">
-    <div class="field">
-      <label for="task-thema">Thema für die Klasse</label>
-      <input id="task-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
-    </div>
-    <div class="field">
-      <label for="task-auftrag">Arbeitsauftrag <span class="label-note">optional</span></label>
-      <textarea id="task-auftrag" rows="2" maxlength="1000" placeholder="z. B. Mindestens 6 Ereignisse, davon 2 mit Bild und Bildquelle."></textarea>
-    </div>
-    <div class="field task-kat">
-      <label for="task-kategorien">Kategorien <span class="label-note">optional, höchstens 8, mit Komma getrennt</span></label>
-      <div class="task-kat-row">
-        <input id="task-kategorien" type="text" maxlength="400" autocomplete="off" placeholder="z. B. Politik, Religion, Personen, Bauwerke">
-        <button type="button" class="btn" id="task-kat-uebernehmen">Aus meinem Zeitstrahl</button>
+  <h2 id="connect-title">Unterricht</h2>
+  <section class="connect-part" aria-labelledby="part-aufgabe">
+    <h3 id="part-aufgabe"><span class="part-num">1</span> Aufgabe</h3>
+    <form class="task-form" id="task-form">
+      <div class="field">
+        <label for="task-thema">Thema für die Klasse</label>
+        <input id="task-thema" type="text" maxlength="140" autocomplete="off" placeholder="z. B. Reformation">
       </div>
-      <span class="note">Mit Vorgabe wählen die iPads nur aus diesen Kategorien. Ohne Vorgabe tippen die Schüler eigene ein. Neue Kategorien am besten hinten anhängen, dann bleiben die Farben gleich.</span>
+      <div class="field">
+        <label for="task-auftrag">Arbeitsauftrag <span class="label-note">optional</span></label>
+        <textarea id="task-auftrag" rows="2" maxlength="1000" placeholder="z. B. Mindestens 6 Ereignisse, davon 2 mit Bild und Bildquelle."></textarea>
+      </div>
+      <div class="field task-kat">
+        <label for="task-kategorien">Kategorien <span class="label-note">optional, höchstens 8, mit Komma getrennt</span></label>
+        <div class="task-kat-row">
+          <input id="task-kategorien" type="text" maxlength="400" autocomplete="off" placeholder="z. B. Politik, Religion, Personen, Bauwerke">
+          <button type="button" class="btn" id="task-kat-uebernehmen">Aus meinem Zeitstrahl</button>
+        </div>
+        <span class="note">Mit Vorgabe wählen die iPads nur aus diesen Kategorien. Ohne Vorgabe tippen die Schüler eigene ein. Neue Kategorien am besten hinten anhängen, dann bleiben die Farben gleich.</span>
+      </div>
+      <div class="task-actions">
+        <button type="submit" class="btn primary">Thema festlegen</button>
+        <span class="task-state" id="task-state" role="status"></span>
+      </div>
+    </form>
+  </section>
+  <section class="connect-part" aria-labelledby="part-ipads">
+    <h3 id="part-ipads"><span class="part-num">2</span> iPads verbinden</h3>
+    <div class="connect-grid" id="connect-grid">
+      <div id="connect-qr" class="connect-qr"></div>
+      <div class="connect-text">
+        <p class="connect-step">Mit der Kamera des iPads den Code scannen</p>
+        <p class="connect-or">oder in Safari eingeben:</p>
+        <p class="connect-url" id="connect-url"></p>
+        <p class="connect-thema">Thema: <strong id="connect-thema"></strong></p>
+        <p class="connect-alt" id="connect-alt" hidden></p>
+        <p class="connect-hint">iPads und Laptop müssen im selben WLAN sein.</p>
+      </div>
     </div>
-    <div class="task-actions">
-      <button type="submit" class="btn primary">Thema festlegen</button>
+    <p id="connect-none" class="connect-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden. Bitte mit dem WLAN verbinden und den Dialog erneut öffnen.</p>
+  </section>
+  <section class="connect-part" aria-labelledby="part-stunde">
+    <h3 id="part-stunde"><span class="part-num">3</span> Während der Stunde</h3>
+    <div class="freigabe-row">
+      <label for="task-freigabe">Zeitstrahl für die Schüler sichtbar</label>
+      <select id="task-freigabe"></select>
+      <span class="note">Die Schüler können ihn auf ihrer Seite ansehen, drucken und als Bild speichern. Ihr eigener Zeitstrahl bleibt dabei unverändert.</span>
+    </div>
+    <div class="sperre-row">
       <button type="button" class="btn" id="btn-sperre">Abgabe beenden</button>
-      <span class="task-state" id="task-state" role="status"></span>
+      <span class="note">Danach können die iPads nichts mehr speichern, z. B. vor dem Präsentieren.</span>
     </div>
-  </form>
-  <div class="freigabe-row">
-    <label for="task-freigabe">Zeitstrahl für die Schüler sichtbar</label>
-    <select id="task-freigabe"></select>
-    <span class="note">Die Schüler können ihn auf ihrer Seite ansehen, drucken und als Bild speichern. Ihr eigener Zeitstrahl bleibt dabei unverändert.</span>
-  </div>
-  <p class="sperre-note" id="sperre-note" hidden>Die iPads können gerade nichts mehr speichern. Zum Weiterarbeiten auf „Bearbeiten wieder erlauben“ klicken.</p>
-  <div class="connect-grid" id="connect-grid">
-    <div id="connect-qr" class="connect-qr"></div>
-    <div class="connect-text">
-      <p class="connect-step">Mit der Kamera des iPads den Code scannen</p>
-      <p class="connect-or">oder in Safari eingeben:</p>
-      <p class="connect-url" id="connect-url"></p>
-      <p class="connect-thema">Thema: <strong id="connect-thema"></strong></p>
-      <p class="connect-alt" id="connect-alt" hidden></p>
-      <p class="connect-hint">iPads und Laptop müssen im selben WLAN sein.</p>
-    </div>
-  </div>
-  <p id="connect-none" class="connect-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden. Bitte mit dem WLAN verbinden und den Dialog erneut öffnen.</p>
+    <p class="sperre-note" id="sperre-note" hidden>Die iPads können gerade nichts mehr speichern. Zum Weiterarbeiten auf „Bearbeiten wieder erlauben“ klicken.</p>
+  </section>
   <div class="review-foot">
+    <button type="button" class="btn ghost zugang-only" id="connect-zugang" hidden>Am Lehrer-PC öffnen …</button>
     <button type="button" class="btn primary" id="connect-close">Schließen</button>
   </div>
 </dialog>
@@ -265,7 +279,7 @@
     <p class="connect-url" id="zugang-url"></p>
     <p class="connect-alt" id="zugang-alt" hidden></p>
     <p class="connect-none" id="zugang-none" hidden>Der Laptop ist mit keinem Netzwerk verbunden.</p>
-    <p>Nach dem Passwort erscheint dort dieselbe Lehrkraft-Ansicht wie hier, mit Tafelbild, iPads verbinden und den Schüler-Zeitstrahlen. Änderungen erscheinen nach wenigen Sekunden auf beiden Geräten.</p>
+    <p>Nach dem Passwort erscheint dort dieselbe Lehrkraft-Ansicht wie hier, mit Tafelbild, Unterricht und den Schüler-Zeitstrahlen. Änderungen erscheinen nach wenigen Sekunden auf beiden Geräten.</p>
     <p class="zugang-state" id="zugang-state" role="status"></p>
     <p class="zugang-note" id="zugang-how"></p>
     <p class="zugang-note">Die Verbindung im Schulnetz ist nicht verschlüsselt. Bitte ein Passwort wählen, das du sonst nirgends benutzt.</p>

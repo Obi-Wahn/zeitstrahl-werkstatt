@@ -219,7 +219,7 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
-/* ---------- Datei-Menü ---------- */
+/* ---------- Menüs „Datei“ und „Arbeitsblatt“ ---------- */
 
 .menu { position: relative; }
 .menu-list {
@@ -882,7 +882,24 @@ body.present .detail-img { max-height: 46vh; }
 .connect-thema { font-size: 17px; }
 .connect-alt, .connect-hint { font-size: 14.5px; color: var(--ink-soft); }
 .connect-none { color: var(--warn); font-weight: 700; }
-.connect .review-foot { margin: 18px -24px 0; }
+.connect .review-foot { margin: 18px -24px 0; position: sticky; bottom: 0; background: var(--sheet); }
+.connect .review-foot .zugang-only { margin-right: auto; }
+
+/* Dialog „Unterricht“: drei Abschnitte */
+.connect-part { display: grid; gap: 12px; padding: 16px 0; border-top: 1px solid var(--rule); }
+.connect-part h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 17px; font-weight: 700; }
+.part-num {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--sheet);
+  background: var(--ink);
+}
+.sperre-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.sperre-row .note { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
 
 /* ---------- Schülerseite: eigener Zeitstrahl ---------- */
 
@@ -1008,9 +1025,6 @@ body.present .detail-img { max-height: 46vh; }
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: 10px 16px;
   align-items: start;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--rule);
 }
 @media (max-width: 720px) { .task-form { grid-template-columns: minmax(0, 1fr); } }
 .task-form input[type="text"] { font-size: 18px; font-weight: 700; }
@@ -1028,9 +1042,6 @@ body.present .detail-img { max-height: 46vh; }
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 12px;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--rule);
 }
 .freigabe-row label { font-size: 14px; font-weight: 700; }
 .freigabe-row select { flex: 1 1 240px; width: auto; min-width: 0; }
