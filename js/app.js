@@ -426,7 +426,7 @@
       try {
         await api('api/abgaben/' + a.id + '/rueckmeldung', { method: 'PUT', body: JSON.stringify({ rueckmeldung: ta.value.trim() }) });
         a.rueckmeldung = ta.value.trim();
-        state.textContent = a.rueckmeldung ? 'Gespeichert. Die Gruppe sieht sie auf dem iPad.' : 'Rückmeldung entfernt.';
+        state.textContent = a.rueckmeldung ? 'Gespeichert. Die Gruppe sieht sie auf ihrem Gerät.' : 'Rückmeldung entfernt.';
       } catch (e) {
         state.textContent = e.message;
       } finally {
@@ -717,9 +717,9 @@
     const t = server.task.thema;
     const zu = !!server.task.gesperrt;
     $('task-state').textContent = zu
-      ? 'Die Abgabe ist beendet. Die iPads können nichts mehr speichern.'
+      ? 'Die Abgabe ist beendet. Die Schüler können nichts mehr speichern.'
       : t
-      ? `Die iPads zeigen jetzt das Thema „${t}“.`
+      ? `Die Schüler sehen jetzt das Thema „${t}“.`
       : 'Noch kein Thema festgelegt. Ohne Thema wählen die Schüler selbst eins.';
     $('connect-thema').textContent = t || 'frei wählbar';
     $('btn-sperre').textContent = zu ? 'Bearbeiten wieder erlauben' : 'Abgabe beenden';
@@ -733,7 +733,7 @@
     try {
       server.task = await api('api/aufgabe', { method: 'PUT', body: JSON.stringify({ gesperrt: zu }) });
       renderTaskState();
-      toast(zu ? 'Abgabe beendet. Die iPads können nichts mehr speichern.' : 'Die Klasse kann wieder weiterarbeiten.');
+      toast(zu ? 'Abgabe beendet. Die Schüler können nichts mehr speichern.' : 'Die Klasse kann wieder weiterarbeiten.');
     } catch (e) {
       toast(e.message);
     }
@@ -784,7 +784,7 @@
     try {
       server.task = await api('api/aufgabe', { method: 'PUT', body: JSON.stringify({ freigabe: id }) });
       const t = state.timelines.find((x) => x.id === id);
-      toast(t ? `Die iPads können jetzt „${displayName(t)}“ ansehen.` : 'Die iPads zeigen keinen Zeitstrahl von dir mehr.');
+      toast(t ? `Die Schüler können jetzt „${displayName(t)}“ ansehen.` : 'Die Schüler sehen keinen Zeitstrahl von dir mehr.');
     } catch (e) {
       toast(e.message);
       renderFreigabe();

@@ -898,6 +898,43 @@ body.present .detail-img { max-height: 46vh; }
   color: var(--sheet);
   background: var(--ink);
 }
+
+/* Links steht der QR-Code fest und ist beim Öffnen ganz zu sehen, rechts scrollen
+   Aufgabe und „Während der Stunde“. Schmale oder sehr niedrige Fenster: alles
+   untereinander, der QR-Code zuerst. */
+.unterricht { width: min(1120px, calc(100% - 32px)); }
+.unterricht[open] { display: flex; flex-direction: column; overflow: hidden; }
+.unterricht h2 { flex: none; }
+.unterricht-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  gap: 32px;
+}
+/* 4px Luft links, sonst schneidet die scrollende Spalte den Fokusrahmen der Felder ab */
+.unterricht-side { min-height: 0; overflow-y: auto; margin-left: -4px; padding: 0 6px 0 4px; container-type: inline-size; }
+.connect-ipads { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.connect-ipads .connect-grid { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+/* Der Code nimmt die ganze freie Höhe der Spalte ein, die Texte darunter bleiben sichtbar. */
+.connect-ipads .connect-qr { flex: 0 1 380px; min-height: 150px; max-width: none; padding: 0; background: none; }
+.connect-ipads .connect-qr svg { width: 100%; height: 100%; }
+.connect-ipads .connect-text { flex: none; gap: 4px; }
+.connect-ipads .connect-step { font-size: 18px; }
+.connect-ipads .connect-or { font-size: 15px; }
+.connect-ipads .connect-url { font-size: clamp(22px, 2.4vw, 30px); white-space: normal; overflow-wrap: anywhere; }
+.connect-ipads .connect-thema { font-size: 16px; }
+.unterricht .review-foot { flex: none; margin-top: 0; }
+@container (max-width: 560px) {
+  .unterricht-side .task-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px), (max-height: 520px) {
+  .unterricht[open] { display: block; overflow-y: auto; }
+  .unterricht-body { display: block; }
+  .unterricht-side, .connect-ipads { overflow: visible; margin-left: 0; padding: 0; }
+  .connect-ipads .connect-qr { flex: none; width: min(100%, 340px); }
+  .connect-ipads .connect-qr svg { height: auto; }
+}
 .sperre-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .sperre-row .note { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
 
