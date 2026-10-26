@@ -380,12 +380,31 @@
   }
 
   // preset: vorgegebene Kategorien der Lehrkraft, sie bestimmen die Farben (siehe presetColors)
+  // Die Zeile "# Lupe: 1914–1918" vergrößert einen dichten Abschnitt unter dem Zeitstrahl.
+  // Das letzte Jahr (bzw. der letzte Monat oder Tag) gehört ganz dazu.
+  const LUPE = /^#\s*Lupe\s*:\s*(.*)$/i;
+  function lupeRange(text, now) {
+    const r = parseDateField(text, now);
+    if (r.error) return r;
+    const p = r.b || r.a;
+    const end = toPos(p) + (!p.m ? 1 : p.d ? 1 / 365 : (p.m === 12 ? 365 - CUM[11] : CUM[p.m] - CUM[p.m - 1]) / 365);
+    return { start: r.start, end: Math.max(end, r.end), label: text.trim() };
+  }
+
   function parseSource(src, now, preset) {
     const items = [];
     const problems = [];
+    let lupe = null;
     const lines = String(src).split('\n');
     for (let i = 0; i < lines.length; i++) {
       const raw = lines[i].trim();
+      const lm = raw.match(LUPE);
+      if (lm) {
+        const r = lupeRange(lm[1], now);
+        if (r.error) problems.push({ line: i, msg: 'Lupe: ' + r.error });
+        else lupe = r;
+        continue;
+      }
       if (!raw || raw.startsWith('#')) continue;
       const { meta, rest: line } = extractMeta(raw);
       const parts = splitLine(line);
@@ -428,7 +447,7 @@
       items.push(it);
     }
     const cats = assignCategories(items, preset);
-    return { items, problems, cats };
+    return { items, problems, cats, lupe };
   }
 
   // Macht Text aus einem Formular zeilentauglich: keine Klammern oder Umbrüche

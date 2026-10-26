@@ -33,7 +33,8 @@ const box = (e) => (e.flip ? [e.x - e.w, e.x] : [e.x, e.x + e.w]);
 function assertNoOverlap(g) {
   for (const a of g.evs) {
     for (const b of g.evs) {
-      if (a === b || a.below !== b.below || a.lane !== b.lane) continue;
+      // Ein mehrzeiliges Fähnchen belegt die Spuren lane bis lane + n − 1
+      if (a === b || a.below !== b.below || a.lane + a.n <= b.lane || b.lane + b.n <= a.lane) continue;
       const [al, ar] = box(a);
       const [bl, br] = box(b);
       assert.ok(ar <= bl || br <= al, `${a.it.title} überdeckt ${b.it.title}`);
@@ -110,7 +111,8 @@ test('viele zufällige Ereignisse: nichts überdeckt sich, nichts ragt hinaus', 
     const r = zufall(seed);
     const src = Array.from({ length: 60 }, (_, i) => `${1801 + Math.floor(r() * 198)}; ${'Titel '.repeat(1 + Math.floor(r() * 4))}${i}`).join('\n');
     const g = L.layout(items(src), { v0: 1800, v1: 2000 }, 1200, opts());
-    assert.equal(g.evs.length, 60);
+    // Gleiche Jahre stehen gemeinsam in einem Fähnchen, verloren geht keines
+    assert.equal(g.evs.reduce((n, e) => n + e.list.length, 0), 60);
     assertNoOverlap(g);
     for (const e of g.evs) {
       const [l, rr] = box(e);
@@ -168,6 +170,107 @@ test('ohne Zeiträume gibt es keinen Bereich dafür', () => {
   const g = L.layout(items('1517; A'), { v0: 1500, v1: 1540 }, 800, opts());
   assert.equal(g.spansZone, null);
   assert.equal(g.sps.length, 0);
+});
+
+console.log('Gleiches Datum');
+
+test('Ereignisse mit gleichem Datum teilen sich ein Fähnchen', () => {
+  const g = L.layout(items('9.11.1918; Thronverzicht\n9.11.1918; Ausrufung der Republik\n11.11.1918; Waffenstillstand\n1918; Nur das Jahr'), { v0: 1917, v1: 1920 }, 1200, opts());
+  assert.equal(g.evs.length, 3);
+  const pair = g.evs.find((e) => e.list.length === 2);
+  assert.deepEqual(pair.list.map((it) => it.title), ['Thronverzicht', 'Ausrufung der Republik']);
+  assert.ok(pair.h > g.M.pillH);
+  // Das Datum steht einmal, beide Titel sind einzeln anklickbar
+  const svg = L.svgBody(g, PAINT, { interactive: true });
+  assert.equal(svg.split('>9.11.1918<').length - 1, 1);
+  assert.ok(svg.includes(`data-id="${pair.list[0].id}"`) && svg.includes(`data-id="${pair.list[1].id}"`));
+});
+
+test('mehrzeilige Fähnchen überdecken keine anderen', () => {
+  const src = [];
+  for (let i = 0; i < 12; i++) src.push(`${1900 + (i % 4)}; Ereignis Nummer ${i}`);
+  const g = L.layout(items(src.join('\n')), { v0: 1895, v1: 1910 }, 900, opts());
+  assert.equal(g.evs.length, 4);
+  assertNoOverlap(g);
+});
+
+console.log('Achsenbruch');
+
+const DICHT = [
+  '1871; Reichsgründung', '1890; Bismarck', '1904; Entente', '1914–1918; Krieg', '1917; USA', '1918; Revolution',
+  '1919; Versailles', '1923; Krise', '1933; NS', '1984; Kohl und Mitterrand', '2015; Gallipoli',
+].join('\n');
+
+test('lange leere Zeiten werden gestaucht, der Rest bleibt maßstabsgetreu', () => {
+  const list = items(DICHT);
+  const w = L.makeWarp(list);
+  assert.equal(w.breaks.length, 2);
+  for (const t of [1871, 1900, 1918.5, 1950, 1990, 2015]) assert.ok(Math.abs(w.inv(w.f(t)) - t) < 1e-9, String(t));
+  // Zwischen 1871 und 1933 kein Bruch: Abstände bleiben gleich
+  assert.ok(Math.abs((w.f(1933) - w.f(1918)) - 15) < 1e-9);
+  // 1933 bis 1984 schrumpft deutlich
+  assert.ok(w.f(1984) - w.f(1933) < 25);
+  assert.ok(!w.inBreak(1933) && !w.inBreak(1984) && w.inBreak(1960));
+});
+
+test('gleichmäßig verteilte Einträge bekommen keinen Bruch', () => {
+  const src = [];
+  for (let y = 0; y <= 2000; y += 150) src.push(`${y || 1}; Eintrag ${y}`);
+  assert.equal(L.makeWarp(items(src.join('\n'))).breaks.length, 0);
+  assert.equal(L.makeWarp(items('1517; A\n1918; B')).breaks.length, 0);
+});
+
+test('Skala und Zeichnung mit Achsenbruch', () => {
+  const list = items(DICHT);
+  const warp = L.makeWarp(list);
+  const view = { v0: warp.f(1865), v1: warp.f(2020) };
+  const g = L.layout(list, view, 1200, opts({ warp }));
+  assert.equal(g.breaks.length, 2);
+  // Keine Jahreszahl im gestauchten Bereich, die Zahlen überdecken sich nicht
+  for (const t of g.ticks.major) assert.ok(!g.breaks.some((b) => t.x > b.x0 && t.x < b.x1), t.label);
+  const major = g.ticks.major;
+  for (let i = 1; i < major.length; i++) assert.ok(major[i].x - major[i - 1].x >= (major[i].w + major[i - 1].w) / 2, major[i].label);
+  // Jedes Ereignis steht an seiner gestauchten Stelle
+  const e = g.evs.find((x) => x.it.title === 'Kohl und Mitterrand');
+  assert.ok(Math.abs(e.x - (warp.f(1984) - view.v0) * 1200 / (view.v1 - view.v0)) < 1e-6);
+  assert.ok(L.svgBody(g, PAINT, {}).includes('<polygon'));
+});
+
+console.log('Lupe');
+
+const LUPE_SRC = [
+  '# Lupe: 1914–1918', '1871; Reichsgründung', '1890; Bismarck', '28.6.1914; Sarajevo', '1916; Verdun',
+  '9.11.1918; Republik', '1914–1918; Erster Weltkrieg', '1919; Versailles', '1933; NS', '1879–1918; Zweibund',
+].join('\n');
+
+test('Lupe zeigt den Abschnitt vergrößert, oben bleiben nur Punkte', () => {
+  const { items: list, lupe } = P.parseSource(LUPE_SRC, NOW);
+  assert.deepEqual([lupe.start, lupe.end], [1914, 1919]); // 1918 gehört ganz dazu
+  const g = L.layout(list, { v0: 1865, v1: 1940 }, 1200, opts({ lupe }));
+  assert.ok(g.lupe);
+  const oben = g.evs.flatMap((e) => e.list.map((it) => it.title));
+  assert.deepEqual(oben.sort(), ['Bismarck', 'NS', 'Reichsgründung', 'Versailles']);
+  assert.deepEqual(g.dots.map((d) => d.it.title), ['Sarajevo', 'Verdun', 'Republik']);
+  // Der Weltkrieg passt ganz hinein, der Zweibund nicht
+  assert.deepEqual(g.sps.map((sp) => sp.it.title), ['Zweibund']);
+  assert.deepEqual(g.lupe.g.sps.map((sp) => sp.it.title), ['Erster Weltkrieg']);
+  assert.equal(g.lupe.g.evs.length, 3);
+  assert.ok(g.lupe.y > g.H0 && g.H > g.lupe.y + g.lupe.g.H);
+  const svg = L.svgBody(g, PAINT, { interactive: true });
+  assert.ok(svg.includes('>Sarajevo<') && svg.includes('data-id="L3"'));
+});
+
+test('ohne Lupe, wenn hineingezoomt oder der Abschnitt nicht zu sehen ist', () => {
+  const { items: list, lupe } = P.parseSource(LUPE_SRC, NOW);
+  assert.equal(L.layout(list, { v0: 1913, v1: 1920 }, 1200, opts({ lupe })).lupe, null);
+  assert.equal(L.layout(list, { v0: 1860, v1: 1900 }, 1200, opts({ lupe })).lupe, null);
+});
+
+test('fehlerhafte Lupe wird gemeldet', () => {
+  const r = P.parseSource('# Lupe: irgendwann\n1517; A', NOW);
+  assert.equal(r.lupe, null);
+  assert.equal(r.problems.length, 1);
+  assert.equal(r.problems[0].line, 0);
 });
 
 console.log('SVG');
