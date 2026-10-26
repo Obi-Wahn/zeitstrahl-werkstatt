@@ -72,7 +72,7 @@
         <button type="button" class="btn icon" id="zoom-out" aria-label="Verkleinern" title="Verkleinern (−)">−</button>
         <button type="button" class="btn icon" id="zoom-in" aria-label="Vergrößern" title="Vergrößern (+)">+</button>
         <button type="button" class="btn" id="zoom-fit" title="Alles zeigen (0)">Alles zeigen</button>
-        <button type="button" class="btn" id="zoom-lupe" title="Den gerade gezeigten Ausschnitt vergrößert unter dem ganzen Zeitstrahl zeigen">Ausschnitt als Lupe</button>
+        <button type="button" class="btn" id="zoom-lupe" aria-haspopup="dialog" title="Einen Zeitraum vergrößert unter dem ganzen Zeitstrahl zeigen">Lupe …</button>
       </div>
     </div>
 
@@ -332,6 +332,31 @@
       <button type="submit" class="btn ghost" value="">Abbrechen</button>
       <button type="submit" class="btn danger" value="replace">Ersetzen</button>
       <button type="submit" class="btn primary" value="add" autofocus>Hinzufügen</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="lupe" class="review ask" aria-labelledby="lupe-title">
+  <form id="lupe-form" novalidate>
+    <div class="review-head">
+      <h2 id="lupe-title">Lupe</h2>
+      <p>Dieser Zeitraum steht vergrößert unter dem ganzen Zeitstrahl. Oben erscheinen seine Ereignisse dann nur als Punkte. Das Datum schreibst du wie bei den Einträgen, z. B. <code>1914</code>, <code>Juni 1914</code> oder <code>28.06.1914</code>.</p>
+      <div class="row2">
+        <div class="field">
+          <label for="lupe-von">Von</label>
+          <input id="lupe-von" type="text" maxlength="40" autocomplete="off" placeholder="z. B. 1914">
+        </div>
+        <div class="field">
+          <label for="lupe-bis">Bis <span class="label-note">einschließlich</span></label>
+          <input id="lupe-bis" type="text" maxlength="40" autocomplete="off" placeholder="z. B. 1918">
+        </div>
+      </div>
+      <p class="lupe-error" id="lupe-error" role="alert" hidden></p>
+    </div>
+    <div class="review-foot">
+      <button type="button" class="btn danger lupe-remove" id="lupe-remove">Lupe entfernen</button>
+      <button type="button" class="btn ghost" id="lupe-cancel">Abbrechen</button>
+      <button type="submit" class="btn primary">Lupe zeigen</button>
     </div>
   </form>
 </dialog>

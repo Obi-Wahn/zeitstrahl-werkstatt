@@ -388,7 +388,8 @@
     if (r.error) return r;
     const p = r.b || r.a;
     const end = toPos(p) + (!p.m ? 1 : p.d ? 1 / 365 : (p.m === 12 ? 365 - CUM[11] : CUM[p.m] - CUM[p.m - 1]) / 365);
-    return { start: r.start, end: Math.max(end, r.end), label: text.trim() };
+    // von/bis zum Vorausfüllen des Lupe-Dialogs
+    return { start: r.start, end: Math.max(end, r.end), label: text.trim(), von: fmtShort(r.a), bis: r.b ? fmtShort(r.b) : '' };
   }
 
   function parseSource(src, now, preset) {

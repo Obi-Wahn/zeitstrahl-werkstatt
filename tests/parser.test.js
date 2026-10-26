@@ -255,4 +255,17 @@ test('Zeilenumbruch in einer Zelle und leere Zeilen', () => {
   assert.equal(P.parseSource(P.tableToSource(csv), NOW).items.length, 1);
 });
 
+console.log('Lupe');
+
+test('Lupe: Zeitraum mit Von und Bis, das Ende zählt ganz mit', () => {
+  const a = P.parseSource('# Lupe: 1914–1918\n1916; Verdun', NOW).lupe;
+  assert.deepEqual([a.start, a.end, a.von, a.bis], [1914, 1919, '1914', '1918']);
+  const b = P.parseSource('# Lupe: Juni 1914 – 11.11.1918', NOW).lupe;
+  assert.deepEqual([b.von, b.bis], ['Juni 1914', '11.11.1918']);
+  assert.ok(b.end > P.toPos({ y: 1918, m: 11, d: 11, bc: false }));
+  const c = P.parseSource('# Lupe: 1916', NOW).lupe;
+  assert.deepEqual([c.start, c.end, c.bis], [1916, 1917, '']);
+  assert.equal(P.parseSource('# Lupe: 1918–1914', NOW).lupe, null);
+});
+
 console.log(`\n${passed} Tests bestanden.`);

@@ -1302,51 +1302,71 @@
 
   const LUPE_LINE = /^\s*#\s*Lupe\s*:/i;
 
-  // Beschriftung des Knopfs: Gibt es schon eine Lupe, entfernt er sie
+  // Der Knopf zeigt, ob und für welchen Zeitraum es eine Lupe gibt
   function renderLupeButton() {
     const btn = $('zoom-lupe');
     btn.hidden = !!studentView || parsed.items.length === 0;
-    btn.textContent = parsed.lupe ? 'Lupe entfernen' : 'Ausschnitt als Lupe';
+    btn.textContent = parsed.lupe ? `Lupe: ${parsed.lupe.label}` : 'Lupe …';
   }
 
-  // Schreibt den sichtbaren Ausschnitt als Zeile "# Lupe: …" an den Anfang des Textes,
-  // ab drei Jahren in ganzen Jahren, sonst in Monaten. Danach zeigt die Ansicht wieder alles.
-  function toggleLupe() {
-    if (studentView) return;
-    const tl = ownTl();
-    if (parsed.lupe) {
-      tl.source = tl.source.split('\n').filter((l) => !LUPE_LINE.test(l)).join('\n');
-      afterSourceChange();
-      toast('Lupe entfernt.');
-      return;
-    }
+  // Vorschlag für den Dialog: die bestehende Lupe, sonst der sichtbare Ausschnitt, wenn
+  // hineingezoomt ist (ab drei Jahren in ganzen Jahren, sonst in Monaten)
+  function lupeSuggestion() {
+    if (parsed.lupe) return { von: parsed.lupe.von, bis: parsed.lupe.bis };
     const fit = fitView();
-    if (view.v1 - view.v0 > (fit.v1 - fit.v0) * 0.5) {
-      toast('Zuerst in den dichten Bereich hineinzoomen, dann „Ausschnitt als Lupe“ klicken.');
-      return;
-    }
+    if (view.v1 - view.v0 > (fit.v1 - fit.v0) * 0.5) return { von: '', bis: '' };
     const warp = currentWarp();
     const t0 = warp.inv(view.v0);
     const t1 = warp.inv(view.v1);
     const hist = (y) => (y < 1 ? `${1 - y} v. Chr.` : String(y));
-    let text;
     if (t1 - t0 >= 3) {
       const a = Math.round(t0);
-      const b = Math.max(a, Math.round(t1) - 1); // das letzte Jahr zählt ganz mit
-      text = a === b ? hist(a) : `${hist(a)}–${hist(b)}`;
-    } else {
-      const month = (t) => {
-        const y = Math.floor(t);
-        const m = Math.min(11, Math.max(0, Parser.CUM.filter((d) => d / 365 <= t - y).length - 1));
-        return `${Parser.MONTH_NAMES[m]} ${hist(y)}`;
-      };
-      const a = month(t0);
-      const b = month(Math.max(t0, t1 - 1 / 365));
-      text = a === b ? a : `${a} – ${b}`;
+      return { von: hist(a), bis: hist(Math.max(a, Math.round(t1) - 1)) }; // das letzte Jahr zählt ganz mit
     }
-    tl.source = `# Lupe: ${text}\n` + tl.source.replace(/^\n+/, '');
+    const month = (t) => {
+      const y = Math.floor(t);
+      const m = Math.min(11, Math.max(0, Parser.CUM.filter((d) => d / 365 <= t - y).length - 1));
+      return `${Parser.MONTH_NAMES[m]} ${hist(y)}`;
+    };
+    return { von: month(t0), bis: month(Math.max(t0, t1 - 1 / 365)) };
+  }
+
+  function openLupe() {
+    if (studentView) return;
+    const { von, bis } = lupeSuggestion();
+    $('lupe-von').value = von;
+    $('lupe-bis').value = bis;
+    $('lupe-error').hidden = true;
+    $('lupe-remove').hidden = !parsed.lupe;
+    $('lupe').showModal();
+    $('lupe-von').focus();
+    $('lupe-von').select();
+  }
+
+  // Ersetzt die Zeile "# Lupe: …" oben im Text (text leer: entfernt sie)
+  function writeLupe(text) {
+    const tl = ownTl();
+    const rest = tl.source.split('\n').filter((l) => !LUPE_LINE.test(l)).join('\n');
+    tl.source = text ? `# Lupe: ${text}\n` + rest.replace(/^\n+/, '') : rest;
     afterSourceChange();
     refit(true);
+  }
+
+  function submitLupe() {
+    const von = $('lupe-von').value.trim();
+    const bis = $('lupe-bis').value.trim();
+    const err = (msg) => {
+      $('lupe-error').textContent = msg;
+      $('lupe-error').hidden = false;
+    };
+    if (!von) { err('Bitte bei „Von“ ein Datum eintragen.'); $('lupe-von').focus(); return; }
+    const sep = /^\d+$/.test(von) && /^\d+$/.test(bis) ? '–' : ' – ';
+    const text = bis && bis !== von ? von + sep + bis : von;
+    const r = Parser.parseSource(`# Lupe: ${text}`, NOW);
+    if (!r.lupe) { err(r.problems[0].msg.replace(/^Lupe: /, '')); return; }
+    if (r.lupe.end <= r.lupe.start) { err('„Bis“ muss nach „Von“ liegen.'); return; }
+    $('lupe').close();
+    writeLupe(text);
     toast(`Lupe für ${text} angelegt. Die Zeile steht oben im Text.`);
   }
 
@@ -1819,7 +1839,14 @@
     $('zoom-in').addEventListener('click', () => zoomAt(0.7, stage.clientWidth / 2));
     $('zoom-out').addEventListener('click', () => zoomAt(1 / 0.7, stage.clientWidth / 2));
     $('zoom-fit').addEventListener('click', () => refit(true));
-    $('zoom-lupe').addEventListener('click', toggleLupe);
+    $('zoom-lupe').addEventListener('click', openLupe);
+    $('lupe-form').addEventListener('submit', (e) => { e.preventDefault(); submitLupe(); });
+    $('lupe-cancel').addEventListener('click', () => $('lupe').close());
+    $('lupe-remove').addEventListener('click', () => {
+      $('lupe').close();
+      writeLupe('');
+      toast('Lupe entfernt.');
+    });
 
     // Ziehen, Tippen, Zwei-Finger-Zoom
     const ptrs = new Map();
