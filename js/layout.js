@@ -239,6 +239,24 @@
   // Achse und unten in der Lupe mit Fähnchen, ebenso Zeiträume, die ganz hineinpassen.
   const LUPE_MAX = 0.5;
 
+  // Dichtester Abschnitt als Vorschlag für die Lupe: das Zeitfenster (ein Zwölftel der
+  // ganzen Spanne) mit den meisten Ereignissen, gekürzt auf das erste und letzte darin.
+  // Ohne wenigstens vier Ereignisse gibt es keinen Vorschlag.
+  function densest(items) {
+    const pts = items.filter((i) => i.kind === 'point').sort((a, b) => a.start - b.start);
+    if (pts.length < 4) return null;
+    const R = pts[pts.length - 1].start - pts[0].start;
+    if (R <= 0) return null;
+    const w = R / 12;
+    let best = [0, 0];
+    for (let i = 0, j = 0; i < pts.length; i++) {
+      while (j + 1 < pts.length && pts[j + 1].start <= pts[i].start + w) j++;
+      if (j - i > best[1] - best[0]) best = [i, j];
+    }
+    if (best[1] === best[0]) return null;
+    return { first: pts[best[0]], last: pts[best[1]], count: best[1] - best[0] + 1 };
+  }
+
   function layout(items, view, W, o) {
     const L = o.lupe;
     if (L && L.end > L.start) {
@@ -648,5 +666,5 @@
     return { markup, w: W * 2, h: H * 2 };
   }
 
-  return { metricsFor, pointLabelW, spanLabelParts, makeWarp, makeTicks, layout, svgBody, pageSvg, esc };
+  return { metricsFor, pointLabelW, spanLabelParts, makeWarp, densest, makeTicks, layout, svgBody, pageSvg, esc };
 });

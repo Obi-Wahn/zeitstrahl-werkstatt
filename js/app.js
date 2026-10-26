@@ -1331,11 +1331,46 @@
     return { von: month(t0), bis: month(Math.max(t0, t1 - 1 / 365)) };
   }
 
+  // Beispiele im Dialog passend zum Zeitstrahl: Platzhalter ist sein dichtester Abschnitt,
+  // die Schreibweisen stammen aus einem echten Eintrag (möglichst mit genauem Tag)
+  function lupeExamples() {
+    const points = visibleItems().filter((i) => i.kind === 'point');
+    const dense = Layout.densest(visibleItems());
+    const fmt = (p, m, d) => Parser.fmtShort({ y: p.y, bc: p.bc, m, d, approx: false, today: false });
+    let von = '1914';
+    let bis = '1918';
+    if (dense) {
+      const a = dense.first.a;
+      const b = dense.last.a;
+      const sameYear = a.y === b.y && a.bc === b.bc;
+      von = sameYear && a.m ? fmt(a, a.m, 0) : fmt(a, 0, 0);
+      bis = sameYear && b.m ? fmt(b, b.m, 0) : fmt(b, 0, 0);
+    }
+    const inDense = dense ? points.filter((i) => i.start >= dense.first.start && i.start <= dense.last.start) : [];
+    // am liebsten ein Eintrag mit Tag aus dem dichten Abschnitt, sonst irgendeiner mit Tag oder Monat
+    const it = inDense.find((i) => i.a.d) || points.find((i) => i.a.d)
+      || inDense.find((i) => i.a.m) || points.find((i) => i.a.m);
+    let ex = ['1914', 'Juni 1914', '28.6.1914'];
+    if (it) {
+      const p = it.a;
+      ex = [fmt(p, 0, 0), fmt(p, p.m, 0), fmt(p, p.m, p.d || 1)];
+    }
+    return { von, bis, ex, proposed: !!dense };
+  }
+
+  let lupeProposal = null; // Vorschlag aus dem Zeitstrahl, gilt bei leeren Feldern
+
   function openLupe() {
     if (studentView) return;
     const { von, bis } = lupeSuggestion();
+    const ex = lupeExamples();
+    lupeProposal = ex.proposed ? { von: ex.von, bis: ex.bis } : null;
     $('lupe-von').value = von;
     $('lupe-bis').value = bis;
+    $('lupe-von').placeholder = 'z. B. ' + ex.von;
+    $('lupe-bis').placeholder = 'z. B. ' + ex.bis;
+    const code = (s) => `<code>${Layout.esc(s)}</code>`;
+    $('lupe-beispiele').innerHTML = `${code(ex.ex[0])}, ${code(ex.ex[1])} oder ${code(ex.ex[2])}`;
     $('lupe-error').hidden = true;
     $('lupe-remove').hidden = !parsed.lupe;
     $('lupe').showModal();
@@ -1353,8 +1388,10 @@
   }
 
   function submitLupe() {
-    const von = $('lupe-von').value.trim();
-    const bis = $('lupe-bis').value.trim();
+    let von = $('lupe-von').value.trim();
+    let bis = $('lupe-bis').value.trim();
+    // Beide Felder leer: Dann gilt der grau vorgeschriebene Vorschlag
+    if (!von && !bis && lupeProposal) ({ von, bis } = lupeProposal);
     const err = (msg) => {
       $('lupe-error').textContent = msg;
       $('lupe-error').hidden = false;

@@ -260,6 +260,13 @@ test('Lupe zeigt den Abschnitt vergrößert, oben bleiben nur Punkte', () => {
   assert.ok(svg.includes('>Sarajevo<') && svg.includes('data-id="L3"'));
 });
 
+test('Vorschlag für die Lupe: der dichteste Abschnitt', () => {
+  const src = ['1871; A', '1890; B', '1914; C', '1915; D', '1916; E', '1917; F', '1918; G', '1933; H', '1984; I', '2015; J', '1914–1918; Krieg'].join('\n');
+  const d = L.densest(items(src));
+  assert.deepEqual([d.first.title, d.last.title, d.count], ['C', 'G', 5]);
+  assert.equal(L.densest(items('1517; A\n1521; B\n1525; C')), null);
+});
+
 test('ohne Lupe, wenn hineingezoomt oder der Abschnitt nicht zu sehen ist', () => {
   const { items: list, lupe } = P.parseSource(LUPE_SRC, NOW);
   assert.equal(L.layout(list, { v0: 1913, v1: 1920 }, 1200, opts({ lupe })).lupe, null);
