@@ -705,6 +705,8 @@ body.present .detail-img { max-height: 46vh; }
 .review.ask { width: min(540px, calc(100% - 32px)); }
 .review.ask .review-head { border-bottom: 0; padding-bottom: 14px; gap: 10px; }
 .review.ask .review-foot { border-top: 0; padding-top: 4px; }
+.lupe-error { margin: 0; font-size: 14px; color: var(--warn); }
+.review-foot .lupe-remove { margin-right: auto; }
 .review-foot {
   display: flex;
   justify-content: flex-end;
