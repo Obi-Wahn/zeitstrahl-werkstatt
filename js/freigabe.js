@@ -28,9 +28,10 @@
   let shown = null; // { hash, name, images, items, cats }
   let selectedId = null;
   // Ganzer Zeitraum der Einträge mit etwas Rand
-  function fullView(items) {
-    let lo = Math.min(...items.map((i) => i.start));
-    let hi = Math.max(...items.map((i) => i.end));
+  // Ganzer Zeitstrahl, in gestauchten Jahren wie beim Achsenbruch der Lehrkraft
+  function fullView(items, warp) {
+    let lo = Math.min(...items.map((i) => warp.f(i.start)));
+    let hi = Math.max(...items.map((i) => warp.f(i.end)));
     if (hi - lo < 2) { lo -= 5; hi += 5; }
     const pad = (hi - lo) * 0.05;
     return { v0: lo - pad, v1: hi + pad };
@@ -51,7 +52,8 @@
       return;
     }
     const W = Math.max(MIN_W, box.clientWidth || 0);
-    const g = Layout.layout(items, fullView(items), W, { scale: 1, family: FAM, measure, blank: false });
+    const warp = Layout.makeWarp(items);
+    const g = Layout.layout(items, fullView(items, warp), W, { scale: 1, family: FAM, measure, blank: false, warp, lupe: shown.lupe });
     const H = Math.ceil(g.H);
     box.innerHTML = `<svg class="tl-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Zeitstrahl eurer Lehrkraft">`
       + Layout.svgBody(g, PAINT, { selectedId, interactive: true, todayPos: null }) + '</svg>';
@@ -108,8 +110,9 @@
 
   // Dieselbe Seite A4 quer wie bei der Lehrkraft (js/layout.js)
   function page() {
-    return Layout.pageSvg(shown.items, fullView(shown.items), shown.cats, {
-      title: shown.name, measure, day: new Date().toLocaleDateString('de-DE'),
+    const warp = Layout.makeWarp(shown.items);
+    return Layout.pageSvg(shown.items, fullView(shown.items, warp), shown.cats, {
+      title: shown.name, measure, day: new Date().toLocaleDateString('de-DE'), warp, lupe: shown.lupe,
     });
   }
 
@@ -143,8 +146,8 @@
         renderCard();
         return;
       }
-      const { items, cats } = Parser.parseSource(String(d.source || ''), NOW);
-      shown = { hash: d.hash, name: d.name || 'Zeitstrahl', images: d.images || {}, items, cats };
+      const { items, cats, lupe } = Parser.parseSource(String(d.source || ''), NOW);
+      shown = { hash: d.hash, name: d.name || 'Zeitstrahl', images: d.images || {}, items, cats, lupe };
       if (!shown.items.some((i) => i.id === selectedId)) selectedId = null;
       renderCard();
       render();

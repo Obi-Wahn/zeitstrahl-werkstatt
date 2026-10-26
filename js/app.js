@@ -990,6 +990,9 @@
   const visibleItems = () => parsed.items.filter((i) => !hiddenCats.has(i.catKey));
   const revealOrder = () => visibleItems().slice().sort((a, b) => a.start - b.start || a.line - b.line);
   const shownItems = () => (present && reveal.on ? revealOrder().slice(0, reveal.n) : visibleItems());
+  // Achsenbruch aus allen sichtbaren Einträgen, damit er beim schrittweisen Aufdecken gleich bleibt.
+  // Der sichtbare Zeitraum (view) ist in gestauchten Jahren angegeben.
+  const currentWarp = () => Layout.makeWarp(visibleItems());
   const currentItem = () => (selectedId ? parsed.items.find((i) => i.id === selectedId) : null);
 
   // Vorgegebene Kategorien färben die Schüler-Zeitstrahlen zum aktuellen Thema einheitlich
@@ -1014,11 +1017,12 @@
   }
   function fitRange(items) {
     if (!items.length) return clampView({ v0: 1400, v1: 2030 });
+    const warp = currentWarp();
     let lo = Infinity;
     let hi = -Infinity;
     for (const it of items) {
-      lo = Math.min(lo, it.start);
-      hi = Math.max(hi, it.end);
+      lo = Math.min(lo, warp.f(it.start));
+      hi = Math.max(hi, warp.f(it.end));
     }
     if (hi - lo < 2) { lo -= 5; hi += 5; }
     const pad = (hi - lo) * 0.04;
@@ -1076,20 +1080,32 @@
     if (W < 20) return;
     const isEmpty = parsed.items.length === 0;
     $('empty').hidden = !isEmpty;
+    renderLupeButton();
     if (isEmpty) { stage.textContent = ''; return; } // ohne Einträge keine Achse, nur der Hinweis
     const items = shownItems();
-    const draw = (scale) => Layout.layout(items, view, W, { scale, family: FAM_SCREEN, measure });
-    let g = draw(present ? PRESENT_SCALE : 1);
+    const warp = currentWarp();
+    let lupe = parsed.lupe;
+    const draw = (scale) => Layout.layout(items, view, W, { scale, family: FAM_SCREEN, measure, warp, lupe });
     // Im Tafelbild gibt es keinen Platz zum Scrollen: Passt der Zeitstrahl nicht auf den
     // Beamer (z. B. 1024 × 768), wird er so weit verkleinert, bis alles sichtbar ist.
+    // Passt er mit Lupe auch dann nicht, entfällt die Lupe; den Abschnitt zeigt man dann durch Hineinzoomen.
     const box = Math.floor(stage.clientHeight);
-    if (present && box > 100 && g.H > box) {
-      let scale = PRESENT_SCALE;
-      for (let i = 0; i < 4 && g.H > box; i++) {
-        scale = Math.max(MIN_PRESENT_SCALE, scale * (box / g.H));
-        g = draw(scale);
-        if (scale <= MIN_PRESENT_SCALE) break;
+    const fit = () => {
+      let g = draw(present ? PRESENT_SCALE : 1);
+      if (present && box > 100 && g.H > box) {
+        let scale = PRESENT_SCALE;
+        for (let i = 0; i < 4 && g.H > box; i++) {
+          scale = Math.max(MIN_PRESENT_SCALE, scale * (box / g.H));
+          g = draw(scale);
+          if (scale <= MIN_PRESENT_SCALE) break;
+        }
       }
+      return g;
+    };
+    let g = fit();
+    if (present && box > 100 && g.lupe && g.H > box) {
+      lupe = null;
+      g = fit();
     }
     const H = Math.max(Math.ceil(g.H), box);
     const offY = Math.max(0, (H - g.H) / 2);
@@ -1282,6 +1298,58 @@
     tl.source = lines.join('\n');
   }
 
+  /* ---------- Lupe ---------- */
+
+  const LUPE_LINE = /^\s*#\s*Lupe\s*:/i;
+
+  // Beschriftung des Knopfs: Gibt es schon eine Lupe, entfernt er sie
+  function renderLupeButton() {
+    const btn = $('zoom-lupe');
+    btn.hidden = !!studentView || parsed.items.length === 0;
+    btn.textContent = parsed.lupe ? 'Lupe entfernen' : 'Ausschnitt als Lupe';
+  }
+
+  // Schreibt den sichtbaren Ausschnitt als Zeile "# Lupe: …" an den Anfang des Textes,
+  // ab drei Jahren in ganzen Jahren, sonst in Monaten. Danach zeigt die Ansicht wieder alles.
+  function toggleLupe() {
+    if (studentView) return;
+    const tl = ownTl();
+    if (parsed.lupe) {
+      tl.source = tl.source.split('\n').filter((l) => !LUPE_LINE.test(l)).join('\n');
+      afterSourceChange();
+      toast('Lupe entfernt.');
+      return;
+    }
+    const fit = fitView();
+    if (view.v1 - view.v0 > (fit.v1 - fit.v0) * 0.5) {
+      toast('Zuerst in den dichten Bereich hineinzoomen, dann „Ausschnitt als Lupe“ klicken.');
+      return;
+    }
+    const warp = currentWarp();
+    const t0 = warp.inv(view.v0);
+    const t1 = warp.inv(view.v1);
+    const hist = (y) => (y < 1 ? `${1 - y} v. Chr.` : String(y));
+    let text;
+    if (t1 - t0 >= 3) {
+      const a = Math.round(t0);
+      const b = Math.max(a, Math.round(t1) - 1); // das letzte Jahr zählt ganz mit
+      text = a === b ? hist(a) : `${hist(a)}–${hist(b)}`;
+    } else {
+      const month = (t) => {
+        const y = Math.floor(t);
+        const m = Math.min(11, Math.max(0, Parser.CUM.filter((d) => d / 365 <= t - y).length - 1));
+        return `${Parser.MONTH_NAMES[m]} ${hist(y)}`;
+      };
+      const a = month(t0);
+      const b = month(Math.max(t0, t1 - 1 / 365));
+      text = a === b ? a : `${a} – ${b}`;
+    }
+    tl.source = `# Lupe: ${text}\n` + tl.source.replace(/^\n+/, '');
+    afterSourceChange();
+    refit(true);
+    toast(`Lupe für ${text} angelegt. Die Zeile steht oben im Text.`);
+  }
+
   function afterSourceChange() {
     $('tl-source').value = activeTl().source;
     reparse();
@@ -1421,10 +1489,13 @@
     renderDetail();
     renderReveal();
     // Nur verschieben, wenn das Ereignis nicht ganz zu sehen ist – dann so, dass es ganz hineinpasst
-    if (it && d > 0 && (it.start < view.v0 || it.end > view.v1)) {
+    const warp = currentWarp();
+    const a = it ? warp.f(it.start) : 0;
+    const b = it ? warp.f(it.end) : 0;
+    if (it && d > 0 && (a < view.v0 || b > view.v1)) {
       const span = view.v1 - view.v0;
-      const len = it.end - it.start;
-      const v0 = len < span * 0.8 ? it.start - (span - len) / 2 : it.start - span * 0.05;
+      const len = b - a;
+      const v0 = len < span * 0.8 ? a - (span - len) / 2 : a - span * 0.05;
       userMovedView = true;
       animateTo(clampView({ v0, v1: v0 + Math.max(span, len * 1.1) }));
       return;
@@ -1507,7 +1578,7 @@
 
   // Seite im Format A4 quer für Bild und Druck (gebaut in js/layout.js)
   const pageSvg = (blank) => Layout.pageSvg(visibleItems(), view, parsed.cats, {
-    title: displayName(activeTl()), blank, hidden: hiddenCats, measure, day: new Date().toLocaleDateString('de-DE'),
+    title: displayName(activeTl()), blank, hidden: hiddenCats, measure, day: new Date().toLocaleDateString('de-DE'), warp: currentWarp(), lupe: parsed.lupe,
   });
 
   function exportPng(blank) {
@@ -1748,6 +1819,7 @@
     $('zoom-in').addEventListener('click', () => zoomAt(0.7, stage.clientWidth / 2));
     $('zoom-out').addEventListener('click', () => zoomAt(1 / 0.7, stage.clientWidth / 2));
     $('zoom-fit').addEventListener('click', () => refit(true));
+    $('zoom-lupe').addEventListener('click', toggleLupe);
 
     // Ziehen, Tippen, Zwei-Finger-Zoom
     const ptrs = new Map();
