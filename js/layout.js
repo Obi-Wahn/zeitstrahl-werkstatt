@@ -239,6 +239,18 @@
   // Achse und unten in der Lupe mit Fähnchen, ebenso Zeiträume, die ganz hineinpassen.
   const LUPE_MAX = 0.5;
 
+  // Ganzer Zeitraum der Einträge in gestauchten Jahren, mit etwas Rand (pad: Anteil der Spanne).
+  // Sehr kurze Zeitstrahlen (ein einzelnes Datum) zeigen wenigstens ein Jahr. Der Rand wächst
+  // mit der Spanne, damit ein Zeitstrahl über wenige Monate nicht zwischen Jahren voller Leere steht.
+  function fullRange(items, warp, pad) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const it of items) { lo = Math.min(lo, warp.f(it.start)); hi = Math.max(hi, warp.f(it.end)); }
+    if (hi - lo < 1) { const m = (lo + hi) / 2; lo = m - 0.5; hi = m + 0.5; }
+    const p = (hi - lo) * pad;
+    return { v0: lo - p, v1: hi + p };
+  }
+
   // Dichtester Abschnitt als Vorschlag für die Lupe: das Zeitfenster (ein Zwölftel der
   // ganzen Spanne) mit den meisten Ereignissen, gekürzt auf das erste und letzte darin.
   // Ohne wenigstens vier Ereignisse gibt es keinen Vorschlag.
@@ -666,5 +678,5 @@
     return { markup, w: W * 2, h: H * 2 };
   }
 
-  return { metricsFor, pointLabelW, spanLabelParts, makeWarp, densest, makeTicks, layout, svgBody, pageSvg, esc };
+  return { metricsFor, pointLabelW, spanLabelParts, makeWarp, fullRange, densest, makeTicks, layout, svgBody, pageSvg, esc };
 });

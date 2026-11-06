@@ -1017,16 +1017,7 @@
   }
   function fitRange(items) {
     if (!items.length) return clampView({ v0: 1400, v1: 2030 });
-    const warp = currentWarp();
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const it of items) {
-      lo = Math.min(lo, warp.f(it.start));
-      hi = Math.max(hi, warp.f(it.end));
-    }
-    if (hi - lo < 2) { lo -= 5; hi += 5; }
-    const pad = (hi - lo) * 0.04;
-    return clampView({ v0: lo - pad, v1: hi + pad });
+    return clampView(Layout.fullRange(items, currentWarp(), 0.04));
   }
 
   function zoomAt(factor, x) {

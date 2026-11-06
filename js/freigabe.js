@@ -30,11 +30,7 @@
   // Ganzer Zeitraum der Einträge mit etwas Rand
   // Ganzer Zeitstrahl, in gestauchten Jahren wie beim Achsenbruch der Lehrkraft
   function fullView(items, warp) {
-    let lo = Math.min(...items.map((i) => warp.f(i.start)));
-    let hi = Math.max(...items.map((i) => warp.f(i.end)));
-    if (hi - lo < 2) { lo -= 5; hi += 5; }
-    const pad = (hi - lo) * 0.05;
-    return { v0: lo - pad, v1: hi + pad };
+    return Layout.fullRange(items, warp, 0.05);
   }
 
   let checked = false; // schon einmal nachgefragt: Erst danach ist eine Freigabe neu
