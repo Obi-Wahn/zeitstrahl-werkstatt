@@ -267,6 +267,16 @@ test('Vorschlag für die Lupe: der dichteste Abschnitt', () => {
   assert.equal(L.densest(items('1517; A\n1521; B\n1525; C')), null);
 });
 
+test('ganzer Zeitraum: Rand wächst mit der Spanne, ein einzelnes Datum zeigt ein Jahr', () => {
+  const id = { f: (t) => t };
+  const kurz = L.fullRange(items('07.11.1917; A\n13.11.1918; B'), id, 0.05);
+  assert.ok(kurz.v0 > 1917.7 && kurz.v1 < 1919, `${kurz.v0}–${kurz.v1}`);
+  const einzeln = L.fullRange(items('1517; A'), id, 0);
+  assert.ok(Math.abs(einzeln.v1 - einzeln.v0 - 1) < 1e-9);
+  const lang = L.fullRange(items('1500; A\n1600; B'), id, 0.05);
+  assert.ok(Math.abs(lang.v0 - 1495) < 0.1 && Math.abs(lang.v1 - 1605) < 0.1);
+});
+
 test('ohne Lupe, wenn hineingezoomt oder der Abschnitt nicht zu sehen ist', () => {
   const { items: list, lupe } = P.parseSource(LUPE_SRC, NOW);
   assert.equal(L.layout(list, { v0: 1913, v1: 1920 }, 1200, opts({ lupe })).lupe, null);

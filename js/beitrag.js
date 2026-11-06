@@ -362,12 +362,7 @@
     const W = box.clientWidth || 600;
     if (!items.length) { box.textContent = ''; return; }
     const warp = Layout.makeWarp(items);
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const it of items) { lo = Math.min(lo, warp.f(it.start)); hi = Math.max(hi, warp.f(it.end)); }
-    if (hi - lo < 2) { lo -= 5; hi += 5; }
-    const pad = (hi - lo) * 0.05;
-    const g = Layout.layout(items, { v0: lo - pad, v1: hi + pad }, W, { scale: 1, family: FAM, measure, blank: false, warp });
+    const g = Layout.layout(items, Layout.fullRange(items, warp, 0.05), W, { scale: 1, family: FAM, measure, blank: false, warp });
     const H = Math.ceil(g.H);
     box.innerHTML = `<svg class="tl-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Vorschau eures Zeitstrahls">`
       + Layout.svgBody(g, PAINT, { selectedId: editIndex >= 0 ? 'L' + editIndex : null, interactive: true, todayPos: null }) + '</svg>';
@@ -379,11 +374,7 @@
     const { items, cats } = Parser.parseSource(src, NOW, presetKats());
     if (!items.length) { toast('Euer Zeitstrahl hat noch keine Einträge.'); return null; }
     const warp = Layout.makeWarp(items);
-    let lo = Math.min(...items.map((i) => warp.f(i.start)));
-    let hi = Math.max(...items.map((i) => warp.f(i.end)));
-    if (hi - lo < 2) { lo -= 5; hi += 5; }
-    const pad = (hi - lo) * 0.05;
-    return Layout.pageSvg(items, { v0: lo - pad, v1: hi + pad }, cats, {
+    return Layout.pageSvg(items, Layout.fullRange(items, warp, 0.05), cats, {
       title: work.titel || work.thema || 'Mein Zeitstrahl', von: work.von.trim(), measure, day: new Date().toLocaleDateString('de-DE'), warp,
     });
   }
