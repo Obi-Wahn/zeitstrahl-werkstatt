@@ -3,3 +3,6 @@ daten/
 
 # Port und Passwort-Hash: legt der Server beim ersten Start an
 einstellungen.txt
+
+# Lokale Claude-Code-Einstellungen können freigegebene Befehle samt Passwörtern enthalten
+.claude/settings.local.json
