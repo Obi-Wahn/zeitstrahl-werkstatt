@@ -137,6 +137,30 @@ test('Unsinn wird gemeldet', () => {
   assert.match(P.parseDateField('irgendwann', NOW).error, /nicht erkannt/);
 });
 
+test('Erdgeschichte: vor 4,5 Mrd. Jahren, vor 500 Mio. Jahren, vor 40.000 Jahren', () => {
+  const a = P.parseDateField('vor 4,5 Mrd. Jahren', NOW);
+  assert.equal(a.start, 2026 - 4.5e9);
+  assert.equal(P.fmtShort(a.a), 'vor 4,5 Mrd.');
+  assert.equal(P.fmtLong(a.a), 'vor 4,5 Milliarden Jahren');
+  assert.equal(P.parseDateField('vor 500 Millionen Jahren', NOW).start, 2026 - 5e8);
+  const b = P.parseDateField('vor 40.000 Jahren', NOW);
+  assert.equal(b.start, 2026 - 40000);
+  assert.equal(P.fmtShort(b.a), 'vor 40.000 Jahren');
+  assert.equal(P.fmtLong(P.parseDateField('vor etwa 1 Mrd. Jahren', NOW).a), 'vor etwa 1 Milliarde Jahren');
+  assert.equal(P.agoText({ kind: 'point', a: a.a }, NOW), '');
+});
+
+test('Erdgeschichte als Zeitraum', () => {
+  const r = P.parseSource('vor 14 Mrd. Jahren – vor 4,5 Mrd. Jahren; Sterne und Planeten\nvor 600 Mio. Jahren – heute; Tiere', NOW).items;
+  assert.equal(r[0].kind, 'span');
+  assert.equal(r[0].shortDate, 'vor 14–4,5 Mrd.');
+  assert.equal(r[0].longDate, 'vor 14 bis 4,5 Milliarden Jahren');
+  assert.equal(P.durationText(r[0]), '9,5 Milliarden Jahre');
+  assert.equal(r[1].shortDate, 'vor 600 Mio.–heute');
+  assert.equal(P.posLabel(2026 - 6e8, NOW), 'vor 600 Millionen Jahren');
+  assert.equal(P.posLabel(-43, NOW), '44 v. Chr.');
+});
+
 console.log('Zeilen');
 
 test('ganze Zeile mit Kategorie und Beschreibung', () => {
@@ -266,6 +290,13 @@ test('Lupe: Zeitraum mit Von und Bis, das Ende zählt ganz mit', () => {
   const c = P.parseSource('# Lupe: 1916', NOW).lupe;
   assert.deepEqual([c.start, c.end, c.bis], [1916, 1917, '']);
   assert.equal(P.parseSource('# Lupe: 1918–1914', NOW).lupe, null);
+});
+
+test('Lupe in der Erdgeschichte', () => {
+  const r = P.parseSource('# Lupe: vor 600 Mio. Jahren – heute\nvor 4,5 Mrd. Jahren; Erde', NOW);
+  assert.equal(r.lupe.start, 2026 - 6e8);
+  assert.equal(r.lupe.von, 'vor 600 Mio.');
+  assert.ok(P.parseDateField(r.lupe.von, NOW).start === r.lupe.start);
 });
 
 console.log(`\n${passed} Tests bestanden.`);

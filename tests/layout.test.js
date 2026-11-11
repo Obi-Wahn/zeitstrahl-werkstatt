@@ -72,6 +72,22 @@ test('Jahreszahlen der Skala überdecken sich nicht', () => {
   }
 });
 
+test('Erdgeschichte: Skala zählt „vor … Jahren“ bis heute, ohne sich zu überdecken', () => {
+  const ny = new Date().getFullYear();
+  for (const [v0, v1] of [[-14.5e9, ny + 5e8], [-6e8, ny + 2e7], [-2e6, ny]]) {
+    const view = { v0, v1 };
+    const X = (t) => (t - v0) * (1200 / (v1 - v0));
+    const major = L.makeTicks(view, 1200, X, L.metricsFor(1), measure, 'x').major;
+    assert.ok(major.length >= 3 && major.length < 40, `${major.length} Marken bei ${v0}`);
+    assert.ok(major.every((t) => /^vor |^heute$/.test(t.label)), major.map((t) => t.label).join(', '));
+    for (let i = 1; i < major.length; i++) {
+      assert.ok(major[i].x - major[i - 1].x >= (major[i].w + major[i - 1].w) / 2, `${major[i - 1].label} und ${major[i].label}`);
+    }
+  }
+  const labels = L.makeTicks({ v0: -14.5e9, v1: ny + 5e8 }, 1200, (t) => (t + 14.5e9) * (1200 / 15e9), L.metricsFor(1), measure, 'x').major.map((t) => t.label);
+  assert.ok(labels.includes('heute') && labels.includes('vor 10 Mrd.'), labels.join(', '));
+});
+
 test('Stark vergrößert zeigt die Skala Monate mit Jahreszahl', () => {
   const view = { v0: 1517.5, v1: 1518.5 };
   const X = (t) => (t - view.v0) * 1200;

@@ -179,7 +179,7 @@
     if (r.error) return { ok: false, text: r.error };
     const when = r.longLabel // Jahrhundert: „15. Jahrhundert“ statt „um 1401 bis um 1500“
       ? r.longLabel
-      : r.kind === 'point' ? Parser.fmtLong(r.a) : `${Parser.fmtLong(r.a)} bis ${Parser.fmtLong(r.b)}`;
+      : r.kind === 'point' ? Parser.fmtLong(r.a) : Parser.fmtRangeLong(r.a, r.b);
     return { ok: true, text: when, ago: Parser.agoText({ kind: r.kind, a: r.a, b: r.b }, NOW) };
   }
 

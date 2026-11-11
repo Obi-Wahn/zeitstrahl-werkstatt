@@ -140,6 +140,7 @@ Getrennt wird mit dem Semikolon. Weitere Semikolons gehören zur Beschreibung.
 | `15. Jh.`, `15. Jahrhundert`, `frühes 16. Jh.` oder `14.–16. Jh.` | Jahrhundert als Zeitraum (1401–1500) |
 | `44 v. Chr.` | vor Christus. Ein Jahr 0 gibt es nicht. |
 | `7–4 v. Chr.` | Zeitraum vor Christus |
+| `vor 4,5 Mrd. Jahren`, `vor 500 Mio. Jahren`, `vor 40.000 Jahren` | Erdgeschichte und Weltall, gezählt ab heute. Auch als Zeitraum, z. B. `vor 14 Mrd. Jahren – vor 4,5 Mrd. Jahren` oder `vor 600 Mio. Jahren – heute`. Die Skala zählt dann „vor 4 Mrd.“, „vor 500 Mio.“ … bis „heute“. |
 | `um 1450` oder `ca. 1450` | ungefähre Angabe |
 | `1949–heute` | bis zum heutigen Tag |
 | `# Notiz` | Kommentar, erscheint nicht im Zeitstrahl |
