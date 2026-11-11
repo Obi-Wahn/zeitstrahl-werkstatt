@@ -69,16 +69,26 @@ port = 8080
 # Festlegen oder ändern: node server.js --passwort
 `;
 
+// Unter Windows verbietet der Schutz vor Ransomware („Überwachter Ordnerzugriff“) Node.js
+// manchmal das Schreiben, z. B. in Dokumente. Node meldet das dann als EBADF oder EPERM.
+const WINDOWS_HINT = process.platform === 'win32'
+  ? '  Vielleicht erlaubt Windows Node.js nicht, in diesen Ordner zu schreiben. Dann in der Windows-Sicherheit\n'
+    + '  unter Viren- & Bedrohungsschutz → Schutz vor Ransomware → Überwachter Ordnerzugriff Node.js zulassen.\n'
+  : '';
+
 function ensureSettingsFile() {
   if (fs.existsSync(SETTINGS_FILE)) return;
   try {
     fs.writeFileSync(SETTINGS_FILE, SETTINGS_TEMPLATE);
   } catch (e) {
     console.error(`einstellungen.txt ließ sich nicht anlegen: ${e.message}`);
+    if (WINDOWS_HINT) console.error(WINDOWS_HINT);
   }
 }
 
 // Eine Einstellung setzen. Andere Zeilen und Kommentare bleiben, wie sie sind.
+// Geschrieben wird erst in eine Zwischendatei, die dann umbenannt wird. So bleibt
+// einstellungen.txt vollständig, auch wenn das Schreiben mittendrin scheitert.
 function writeSetting(key, value) {
   let text = SETTINGS_TEMPLATE;
   try {
@@ -87,7 +97,19 @@ function writeSetting(key, value) {
   const line = `${key} = ${value}`;
   const rx = new RegExp(`^\\s*${key}\\s*[=:].*$`, 'im');
   text = rx.test(text) ? text.replace(rx, line) : text.replace(/\s*$/, '\n') + line + '\n';
-  fs.writeFileSync(SETTINGS_FILE, text);
+  const tmp = `${SETTINGS_FILE}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+  try {
+    const fd = fs.openSync(tmp, 'w');
+    try {
+      fs.writeSync(fd, text);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, SETTINGS_FILE);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (e2) { /* gab es nicht */ }
+    throw e;
+  }
 }
 
 // einstellungen.txt lesen: Zeilen wie „port = 8080“, # leitet Kommentare ein
@@ -1036,10 +1058,33 @@ async function askPassword(firstStart) {
     } else {
       const salt = crypto.randomBytes(16).toString('hex');
       value = `scrypt:${salt}:${hashPassword(pw, salt)}`;
-      console.log('  Passwort gespeichert (nur als Hash in einstellungen.txt).');
     }
-    writeSetting('passwort', value);
+    if (await saveSetting('passwort', value)) {
+      if (value !== 'aus') console.log('  Passwort gespeichert (nur als Hash in einstellungen.txt).');
+    }
     return;
+  }
+}
+
+// Speichert eine Einstellung, beim ersten Fehlschlag nach einer kurzen Pause noch einmal.
+// Klappt es gar nicht, startet der Server trotzdem und sagt, was man selbst eintragen kann.
+async function saveSetting(key, value) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      writeSetting(key, value);
+      return true;
+    } catch (e) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 300));
+        continue;
+      }
+      console.error(`\n  einstellungen.txt ließ sich nicht schreiben (${e.code || e.message}).`);
+      if (WINDOWS_HINT) console.error(WINDOWS_HINT);
+      console.error('  Bitte die Datei im Ordner der Werkstatt mit einem Editor öffnen und am Ende diese Zeile eintragen:\n');
+      console.error(`  ${key} = ${value}\n`);
+      console.error('  Danach das Server-Fenster schließen und neu starten. Bis dahin geht die Lehrkraft-Ansicht nur an diesem Laptop.\n');
+      return false;
+    }
   }
 }
 
