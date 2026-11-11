@@ -88,13 +88,21 @@
 
   // Fertige Seite (SVG) drucken oder im Druckfenster als PDF sichern. Sie kommt kurz in das
   // Element mit id „print-area“; Querformat und Seitenrand stehen im Druck-Stil in css/style.css.
-  function printSvg(markup) {
+  // Der Browser schlägt beim Sichern als PDF den Seitentitel als Dateinamen vor. Darum steht
+  // während des Drucks „name“ (wie beim Bild, z. B. weimarer-republik) im Titel.
+  function printSvg(markup, name) {
     const area = document.getElementById('print-area');
     area.innerHTML = markup;
     document.body.classList.add('printing');
+    const oldTitle = document.title;
+    if (name) document.title = name;
+    let finished = false;
     const done = () => {
+      if (finished) return;
+      finished = true;
       document.body.classList.remove('printing');
       area.textContent = '';
+      document.title = oldTitle;
       window.removeEventListener('afterprint', done);
     };
     window.addEventListener('afterprint', done);

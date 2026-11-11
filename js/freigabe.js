@@ -120,7 +120,7 @@
 
   function printPage() {
     if (!shown || !shown.items.length) return toast('Dieser Zeitstrahl hat noch keine Einträge.');
-    printSvg(page().markup);
+    printSvg(page().markup, slug(shown.name));
   }
 
   // Fragt beim Laptop nach. Unverändert: nur kurze Antwort, die Bilder kommen nicht erneut.

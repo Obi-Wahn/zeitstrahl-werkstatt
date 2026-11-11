@@ -1648,15 +1648,18 @@
     title: displayName(activeTl()), blank, hidden: hiddenCats, measure, day: new Date().toLocaleDateString('de-DE'), warp: currentWarp(), lupe: parsed.lupe,
   });
 
+  // Dateiname für Bild und PDF: weimarer-republik bzw. weimarer-republik-lueckenbild
+  const fileName = (blank) => slug(activeTl().name) + (blank ? '-lueckenbild' : '');
+
   function exportPng(blank) {
     if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
     const { markup, w, h } = pageSvg(blank);
-    savePng(markup, w, h, slug(activeTl().name) + (blank ? '-lueckenbild' : ''), blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
+    savePng(markup, w, h, fileName(blank), blank ? 'Lückenbild gesichert.' : 'Bild gesichert.');
   }
 
   function printTimeline(blank) {
     if (!visibleItems().length) { toast('Der Zeitstrahl hat noch keine Einträge.'); return; }
-    printSvg(pageSvg(blank).markup);
+    printSvg(pageSvg(blank).markup, fileName(blank));
   }
 
   /* ---------- Öffnen: Textdateien, Tabellen, Sicherungen, Schülerbeiträge ---------- */

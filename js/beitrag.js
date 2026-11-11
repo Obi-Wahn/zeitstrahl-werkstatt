@@ -379,16 +379,18 @@
     });
   }
 
+  // Dateiname für Bild und PDF, z. B. zeitstrahl-weimarer-republik-lena
+  const fileName = () => ['zeitstrahl', ...[work.titel || work.thema, work.von].filter(Boolean).map(slug)].join('-');
+
   function savePicture() {
     const page = pageSvg();
     if (!page) return;
-    const name = ['zeitstrahl', ...[work.titel || work.thema, work.von].filter(Boolean).map(slug)].join('-');
-    savePng(page.markup, page.w, page.h, name, 'Bild gespeichert.');
+    savePng(page.markup, page.w, page.h, fileName(), 'Bild gespeichert.');
   }
 
   function printPage() {
     const page = pageSvg();
-    if (page) printSvg(page.markup);
+    if (page) printSvg(page.markup, fileName());
   }
 
   /* ---------- Verbindung zum Laptop ---------- */
