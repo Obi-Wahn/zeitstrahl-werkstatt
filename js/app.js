@@ -1004,10 +1004,21 @@
 
   /* ---------- Sichtbarer Zeitraum ---------- */
 
+  // Grenzen fürs Zoomen und Verschieben. Reichen die Einträge weiter zurück
+  // (Erdgeschichte, Weltall), wachsen sie mit.
+  function viewLimits() {
+    const items = visibleItems();
+    if (!items.length) return { lo: LIMIT_LO, hi: LIMIT_HI, max: MAX_SPAN };
+    const r = Layout.fullRange(items, currentWarp(), 0.04);
+    const s = r.v1 - r.v0;
+    return { lo: Math.min(LIMIT_LO, r.v0 - s * 0.25), hi: Math.max(LIMIT_HI, r.v1 + s * 0.25), max: Math.max(MAX_SPAN, s * 1.5) };
+  }
+
   function clampView(v) {
-    const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, v.v1 - v.v0));
+    const lim = viewLimits();
+    const span = Math.min(lim.max, Math.max(MIN_SPAN, v.v1 - v.v0));
     let v0 = (v.v0 + v.v1) / 2 - span / 2;
-    v0 = Math.max(LIMIT_LO, Math.min(LIMIT_HI - span, v0));
+    v0 = Math.max(lim.lo, Math.min(lim.hi - span, v0));
     return { v0, v1: v0 + span };
   }
 
@@ -1024,7 +1035,7 @@
     const W = stage.clientWidth || 1;
     const span = view.v1 - view.v0;
     const t = view.v0 + (x / W) * span;
-    const ns = Math.min(MAX_SPAN, Math.max(MIN_SPAN, span * factor));
+    const ns = Math.min(viewLimits().max, Math.max(MIN_SPAN, span * factor));
     const v0 = t - (x / W) * ns;
     view = clampView({ v0, v1: v0 + ns });
     userMovedView = true;
@@ -1310,6 +1321,12 @@
     const t0 = warp.inv(view.v0);
     const t1 = warp.inv(view.v1);
     const hist = (y) => (y < 1 ? `${1 - y} v. Chr.` : String(y));
+    // Weit zurück: „vor 600 Mio. Jahren“ (gerundet auf eine glatte Zahl)
+    if (NOW.getFullYear() - t0 >= Parser.DEEP) {
+      const ago = (t) => { const n = NOW.getFullYear() - t; const r = 10 ** Math.floor(Math.log10(Math.max(1, n)) - 1); return Math.round(n / r) * r; };
+      const b = ago(t1);
+      return { von: Parser.agoLabel(ago(t0)), bis: b <= 0 || t1 >= NOW.getFullYear() ? 'heute' : Parser.agoLabel(b) };
+    }
     if (t1 - t0 >= 3) {
       const a = Math.round(t0);
       return { von: hist(a), bis: hist(Math.max(a, Math.round(t1) - 1)) }; // das letzte Jahr zählt ganz mit
@@ -1327,7 +1344,7 @@
   function lupeExamples() {
     const points = visibleItems().filter((i) => i.kind === 'point');
     const dense = Layout.densest(visibleItems());
-    const fmt = (p, m, d) => Parser.fmtShort({ y: p.y, bc: p.bc, m, d, approx: false, today: false });
+    const fmt = (p, m, d) => Parser.fmtShort({ y: p.y, bc: p.bc, m, d, approx: false, today: false, ago: p.ago });
     let von = '1914';
     let bis = '1918';
     if (dense) {
@@ -1345,6 +1362,8 @@
     if (it) {
       const p = it.a;
       ex = [fmt(p, 0, 0), fmt(p, p.m, 0), fmt(p, p.m, p.d || 1)];
+    } else if (points.some((i) => i.a.ago)) {
+      ex = ['vor 4,5 Mrd. Jahren', 'vor 500 Mio. Jahren', 'vor 40.000 Jahren'];
     }
     return { von, bis, ex, proposed: !!dense };
   }
@@ -1905,7 +1924,7 @@
         const cx = (a.x + b.x) / 2 - rect.left;
         const sp0 = pinch.view.v1 - pinch.view.v0;
         const t = pinch.view.v0 + (pinch.cx / W) * sp0;
-        const ns = Math.min(MAX_SPAN, Math.max(MIN_SPAN, (sp0 * pinch.d) / d));
+        const ns = Math.min(viewLimits().max, Math.max(MIN_SPAN, (sp0 * pinch.d) / d));
         const v0 = t - (cx / W) * ns;
         view = clampView({ v0, v1: v0 + ns });
         userMovedView = true;

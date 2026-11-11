@@ -22,7 +22,10 @@
 })(typeof self !== 'undefined' ? self : this, (Parser) => {
   'use strict';
 
-  const STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  // 1, 2, 5, 10, 20, 50 … bis 10 Milliarden Jahre (Erdgeschichte, Weltall)
+  const STEPS = [];
+  for (let e = 1; e <= 1e10; e *= 10) STEPS.push(e, 2 * e, 5 * e);
+  STEPS.splice(STEPS.indexOf(1e10) + 1);
   const { CUM, MONTH_ABBR } = Parser;
 
   const f = (n) => Math.round(n * 10) / 10;
@@ -177,32 +180,37 @@
       return { major, minor };
     }
 
-    const gap = measure(incBC ? '1000 v. Chr.' : '2000', 400, font, fam) + 26 * M.s;
-    let step = STEPS[STEPS.length - 1];
-    for (const st of STEPS) {
-      if (st * ppy >= gap) { step = st; break; }
-    }
+    const pickStep = (gap) => STEPS.find((st) => st * ppy >= gap) || STEPS[STEPS.length - 1];
+    let step = pickStep(measure(incBC ? '1000 v. Chr.' : '2000', 400, font, fam) + 26 * M.s);
+    // Sehr lange Zeiträume: Skala in „vor … Jahren“ (vor 4 Mrd., vor 500 Mio., heute)
+    const deep = step >= Parser.DEEP;
+    if (deep) step = Math.max(Parser.DEEP, pickStep(measure('vor 500.000 Jahren', 400, font, fam) + 26 * M.s));
     const lead = Number(String(step)[0]);
     const mstep = step / (lead === 2 ? 4 : 5);
 
     // Skalenwerte werden in historischen Jahren gewählt (…, 100 v. Chr., Chr. Geb., 100, …),
-    // damit runde Zahlen auch vor Christus rund bleiben.
-    const hOf = (a) => (a >= 1 ? a : a - 1);
-    const aOf = (h) => (h > 0 ? h : h + 1);
-    const h0 = hOf(t0);
-    const h1 = hOf(t1);
+    // damit runde Zahlen auch vor Christus rund bleiben. Bei sehr langen Zeiträumen zählen
+    // sie stattdessen die Jahre vor heute.
+    const ny = new Date().getFullYear();
+    const hOf = deep ? (a) => ny - a : (a) => (a >= 1 ? a : a - 1);
+    const aOf = deep ? (h) => ny - h : (h) => (h > 0 ? h : h + 1);
+    const label = deep ? (h) => Parser.agoLabel(h) : (h) => yearLabel(h, incBC);
+    const h0 = Math.min(hOf(t0), hOf(t1));
+    const h1 = Math.max(hOf(t0), hOf(t1));
     for (let k = Math.floor(h0 / step) - 1; k <= Math.ceil(h1 / step) + 1; k++) {
       const h = k * step;
+      if (deep && h < 0) continue;
       if (h === 0) {
-        if (step > 1) add(1, 'Chr. Geb.', true);
+        if (deep) add(ny, 'heute', true);
+        else if (step > 1) add(1, 'Chr. Geb.', true);
         continue;
       }
-      add(aOf(h), yearLabel(h, incBC), false);
+      add(aOf(h), label(h), false);
     }
     if (mstep >= 1 && mstep * ppy >= 7) {
       for (let k = Math.floor(h0 / mstep) - 1; k <= Math.ceil(h1 / mstep) + 1; k++) {
         const h = k * mstep;
-        if (h === 0 || h % step === 0 || warp.inBreak(aOf(h))) continue;
+        if (h === 0 || (deep && h < 0) || h % step === 0 || warp.inBreak(aOf(h))) continue;
         minor.push(X(aOf(h)));
       }
     }
@@ -215,15 +223,17 @@
       if (major.some((t) => t.x >= X(a) - 1 && t.x <= X(b) + 1)) continue;
       // möglichst runde Jahreszahl, die in den Abschnitt fällt
       const mid = hOf((a + b) / 2);
+      const lo = Math.min(hOf(a), hOf(b));
+      const hi = Math.max(hOf(a), hOf(b));
       let h = Math.round(mid);
       for (const st of STEPS.slice().reverse()) {
         const c = Math.round(mid / st) * st;
-        if (c >= hOf(a) && c <= hOf(b)) { h = c; break; }
+        if (c >= lo && c <= hi) { h = c; break; }
       }
-      const label = yearLabel(h, incBC);
+      const text = label(h);
       const x = X(aOf(h));
-      const w = measure(label, 400, font, fam);
-      if (h !== 0 && major.every((t) => Math.abs(t.x - x) >= (t.w + w) / 2 + 6 * M.s)) add(aOf(h), label, false);
+      const w = measure(text, 400, font, fam);
+      if ((deep ? h > 0 : h !== 0) && major.every((t) => Math.abs(t.x - x) >= (t.w + w) / 2 + 6 * M.s)) add(aOf(h), text, false);
     }
     major.sort((p, q) => p.x - q.x);
     return { major, minor };
@@ -643,7 +653,7 @@
     const gy = top + 20 + Math.max(0, (room - g.H) / 2);
 
     // Zeitraum und Anzahl für die Unterzeile
-    const yr = (x) => (x < 1 ? `${Math.round(1 - x)} v. Chr.` : String(Math.floor(x)));
+    const yr = (x) => Parser.posLabel(x);
     const first = Math.min(...items.map((i) => i.start));
     const last = Math.max(...items.map((i) => i.end));
     const n = items.length;

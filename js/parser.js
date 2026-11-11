@@ -58,6 +58,66 @@
   // Bei einer Vorgabe reichen die Farben für alle acht Kategorien, dann auch das Grau der Epochen
   const PRESET_ORDER = [...FREE_ORDER, 8];
 
+  /* ---------- Sehr lange Zeiträume („vor 4,5 Mrd. Jahren“) ---------- */
+
+  // Erdgeschichte und Weltall: Angaben wie „vor 4,5 Mrd. Jahren“, „vor 500 Millionen Jahren“
+  // oder „vor 40.000 Jahren“. Sie zählen vom aktuellen Jahr zurück.
+  const RX_AGO = /^vor\s+(?:(etwa|ca\.?|circa|rund|ungefähr)\s+)?(\d[\d.]*(?:,\d+)?)\s*(mrd\.?|milliarden?|mio\.?|millionen?|tsd\.?|tausend)?\s*(?:jahren?)?$/i;
+  const AGO_UNITS = [[1e9, 'Mrd.', 'Milliarden', 'Milliarde'], [1e6, 'Mio.', 'Millionen', 'Million']];
+  // Ab so vielen Jahren vor heute schreibt die Werkstatt „vor … Jahren“ statt „… v. Chr.“
+  const DEEP = 100000;
+
+  // Deutsche Zahl mit Tausenderpunkten und höchstens zwei Nachkommastellen: 40.000 · 4,5
+  function fmtNum(n) {
+    const r = Math.round(n * 100) / 100;
+    const [int, dec] = String(r).split('.');
+    return int.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (dec ? ',' + dec : '');
+  }
+
+  // Jahre als Zahl mit Einheit: [Zahl, kurze Einheit, lange Einheit] – 4,5 · Mrd. · Milliarden
+  function agoParts(n) {
+    for (const [v, short, many, one] of AGO_UNITS) {
+      if (n >= v) return [fmtNum(n / v), short, n === v ? one : many];
+    }
+    return [fmtNum(n), '', ''];
+  }
+
+  // „vor 4,5 Mrd.“ (kurz, für Fähnchen und Achse) oder „vor 4,5 Milliarden Jahren“ (lang)
+  function agoLabel(n, long, approx) {
+    if (n <= 0) return 'heute';
+    const [num, short, word] = agoParts(n);
+    const pre = 'vor ' + (approx ? 'etwa ' : '') + num;
+    if (long) return pre + (word ? ' ' + word : '') + (n === 1 ? ' Jahr' : ' Jahren');
+    return short ? pre + ' ' + short : pre + (n === 1 ? ' Jahr' : ' Jahren');
+  }
+
+  // Dauer in Jahren als Text: 9,5 Milliarden · 40.000
+  function amountText(n) {
+    const [num, , word] = agoParts(n);
+    return word ? num + ' ' + word : num;
+  }
+
+  function parseAgo(m, now, approx) {
+    let num = m[2];
+    num = /^\d{1,3}(?:\.\d{3})+$/.test(num) ? num.replace(/\./g, '') : num.replace(/\./g, '').replace(',', '.');
+    const unit = (m[3] || '').toLowerCase();
+    const mult = unit.startsWith('mrd') || unit.startsWith('milliard') ? 1e9
+      : unit.startsWith('mio') || unit.startsWith('million') ? 1e6
+        : unit.startsWith('t') ? 1e3 : 1;
+    const n = Math.round(+num * mult);
+    if (!(n >= 1)) return null;
+    const t = (now || new Date()).getFullYear() - n; // astronomisches Jahr
+    return { y: t < 1 ? 1 - t : t, m: 0, d: 0, bc: t < 1, approx: approx || !!m[1], today: false, ago: n };
+  }
+
+  // Beschriftung einer Position (astronomisches Jahr) für Unterzeilen und Vorschläge:
+  // weit zurück als „vor 4,5 Mrd. Jahren“, sonst als Jahreszahl
+  function posLabel(t, now) {
+    const ny = (now || new Date()).getFullYear();
+    if (ny - t >= DEEP) return agoLabel(Math.round(ny - t), true);
+    return t < 1 ? `${Math.round(1 - t)} v. Chr.` : String(Math.floor(t));
+  }
+
   /* ---------- Einzelnes Datum ---------- */
 
   // Liefert {y, m, d, bc, approx, today} oder null.
@@ -77,6 +137,7 @@
       const d = now || new Date();
       return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), bc: false, approx: false, today: true };
     }
+    if ((m = s.match(RX_AGO))) return parseAgo(m, now, approx);
     if ((m = s.match(RX_BC))) {
       bc = true;
       s = s.slice(0, m.index).trim();
@@ -211,7 +272,7 @@
     if (/^(?:ca\.?\s*|um\s+)?-?0+(?:\s|$)/i.test(t)) {
       return 'Ein Jahr 0 gibt es nicht: Auf 1 v. Chr. folgt direkt 1 n. Chr.';
     }
-    return `Datum „${t}“ nicht erkannt. Möglich sind z. B. 1517, 31.10.1517, 9. November 1918, 44 v. Chr., 1618–1648 oder 15. Jh.`;
+    return `Datum „${t}“ nicht erkannt. Möglich sind z. B. 1517, 31.10.1517, 9. November 1918, 44 v. Chr., 1618–1648, 15. Jh. oder vor 4,5 Mrd. Jahren.`;
   }
 
   function parseDateField(raw, now) {
@@ -248,6 +309,7 @@
 
   function fmtShort(p) {
     if (p.today) return 'heute';
+    if (p.ago) return agoLabel(p.ago, false, p.approx);
     let s = fmtYear(p);
     if (p.m && p.d) s = p.d + '.' + p.m + '.' + s;
     else if (p.m) s = MONTH_ABBR[p.m - 1] + ' ' + s;
@@ -256,6 +318,7 @@
 
   function fmtLong(p) {
     if (p.today) return 'heute';
+    if (p.ago) return agoLabel(p.ago, true, p.approx);
     let s = fmtYear(p);
     if (p.m && p.d) s = p.d + '. ' + MONTH_NAMES[p.m - 1] + ' ' + s;
     else if (p.m) s = MONTH_NAMES[p.m - 1] + ' ' + s;
@@ -263,8 +326,25 @@
   }
 
   function fmtRangeShort(a, b) {
+    // „vor 14–4,5 Mrd.“: gleiche Einheit nur einmal
+    if (a.ago && b.ago) {
+      const pa = agoParts(a.ago);
+      const pb = agoParts(b.ago);
+      if (pa[1] && pa[1] === pb[1] && !a.approx && !b.approx) return `vor ${pa[0]}–${pb[0]} ${pb[1]}`;
+    }
+    if (a.ago || b.ago) return fmtShort(a) + '–' + fmtShort(b);
     if (a.bc && b.bc && !a.m && !b.m) return (a.approx ? 'um ' : '') + a.y + '–' + b.y + ' v. Chr.';
     return fmtShort(a) + '–' + fmtShort(b);
+  }
+
+  // „vor 14 bis 4,5 Milliarden Jahren“: gleiche Einheit nur einmal
+  function fmtRangeLong(a, b) {
+    if (a.ago && b.ago && !a.approx && !b.approx) {
+      const pa = agoParts(a.ago);
+      const pb = agoParts(b.ago);
+      if (pa[1] && pa[1] === pb[1]) return `vor ${pa[0]} bis ${pb[0]} ${pb[2]} Jahren`;
+    }
+    return fmtLong(a) + ' bis ' + fmtLong(b);
   }
 
   const plural = (n, one, many) => (n === 1 ? one : many);
@@ -282,6 +362,8 @@
 
   // "vor 509 Jahren", "seit 226 Jahren" …
   function agoText(it, now) {
+    // „vor 4,5 Mrd. Jahren“ sagt schon selbst, wie lange es her ist
+    if (it.a.ago || (it.b && it.b.ago)) return '';
     const n = yearsBefore(it.a, now);
     const approx = it.a.approx ? 'etwa ' : '';
     if (it.kind === 'span') {
@@ -298,6 +380,7 @@
     if (!it.a.m && !it.b.m) {
       const n = Math.round(d);
       const pre = it.a.approx || it.b.approx ? 'etwa ' : '';
+      if (n >= 10000) return pre + amountText(n) + ' Jahre';
       return n === 0 ? 'weniger als ein Jahr' : pre + n + ' ' + plural(n, 'Jahr', 'Jahre');
     }
     if (d >= 2) return 'rund ' + Math.round(d) + ' Jahre';
@@ -443,7 +526,7 @@
         it.longDate = `${r.longLabel} (${fmtYear(it.a)}–${fmtYear(it.b)})`;
       } else {
         it.shortDate = fmtRangeShort(it.a, it.b);
-        it.longDate = fmtLong(it.a) + ' bis ' + fmtLong(it.b);
+        it.longDate = fmtRangeLong(it.a, it.b);
       }
       items.push(it);
     }
@@ -546,6 +629,10 @@
     toPos,
     fmtShort,
     fmtLong,
+    fmtRangeLong,
+    agoLabel,
+    posLabel,
+    DEEP,
     agoText,
     durationText,
     CUM,
