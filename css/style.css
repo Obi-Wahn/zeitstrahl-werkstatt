@@ -600,7 +600,8 @@ textarea {
 .help strong { color: var(--ink); }
 .help-list {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* Beispiele höchstens halb so breit, damit die Erklärung daneben lesbar bleibt */
+  grid-template-columns: fit-content(50%) minmax(0, 1fr);
   gap: 8px 14px;
   margin: 0;
   font-size: 14px;
@@ -619,7 +620,7 @@ code {
   padding: 1px 5px;
   white-space: nowrap;
 }
-.help-format code, .empty code { white-space: normal; }
+.help-format code, .empty code, .help-list code { white-space: normal; }
 
 .toast {
   position: fixed;
